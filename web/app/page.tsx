@@ -1,11 +1,15 @@
 import Link from 'next/link'
+import Image from 'next/image'
+
 
 export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center min-h-screen bg-white px-6">
       <div className="text-center max-w-sm">
-        <div className="text-5xl mb-4">🏥</div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">UrgentMatch</h1>
+        <div className="flex justify-center mb-6">
+          <Image src="/logo.PNG" alt="UrgentMatch logo" width={180} height={180} priority />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Urgent LA</h1>
         <p className="text-gray-500 text-base mb-8 leading-relaxed">
           Describe your symptoms and we'll find the best urgent care clinic near you.
         </p>
