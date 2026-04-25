@@ -98,7 +98,7 @@ export async function POST(request: Request) {
   const openAIMessages: OpenAIMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...prior.map((m) => ({ role: m.role, content: m.content })),
-    { role: 'user', content: lastContent.length === 1 ? lastContent[0].text as string : lastContent },
+    { role: 'user', content: lastContent.length === 1 ? lastMessage.content || 'See the image above.' : lastContent },
   ]
 
   const res = await fetch(`${ASI1_BASE}/chat/completions`, {
