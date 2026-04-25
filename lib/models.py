@@ -25,10 +25,10 @@ class Clinic():
     address: str
     lat: float
     lon: float
-    specialties: list[str]
+    specialties: list[str] #clinic specialties 
     current_patients: int
     capacity: int
-    eta_minutes: int
+    eta_minutes: int #wait time
 
 class MatchResponse(Model):
     session_id: str
