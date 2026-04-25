@@ -3,3 +3,4 @@ uagents-core>=0.1
 # anthropic>=0.28
 openai>=1.0
 python-dotenv>=1.0
+httpx>=0.27
