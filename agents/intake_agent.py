@@ -6,7 +6,8 @@ from typing import Optional
 from uuid import uuid4
 
 from dotenv import load_dotenv
-import anthropic
+# import anthropic
+from openai import OpenAI
 from uagents import Agent, Context
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
@@ -20,7 +21,8 @@ from lib.models import MatchRequest, MatchResponse
 
 load_dotenv()
 
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+# ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+ASI1_API_KEY = os.environ["ASI1_API_KEY"]
 MATCHER_AGENT_ADDRESS = os.environ["MATCHER_AGENT_ADDRESS"]
 INTAKE_SEED = os.getenv("INTAKE_SEED", "urgentmatch-intake-seed")
 
@@ -54,7 +56,8 @@ Rules:
 - If patient is a child, always use pediatric regardless of symptom type\
 """
 
-claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+# claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+asi_client = OpenAI(api_key=ASI1_API_KEY, base_url="https://api.asi1.ai/v1")
 
 agent = Agent(
     name="urgentmatch-intake",
@@ -111,13 +114,19 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
     history = sessions.setdefault(sender, [])
     history.append({"role": "user", "content": user_text})
 
-    response = claude.messages.create(
-        model="claude-sonnet-4-6",
+    # response = claude.messages.create(
+    #     model="claude-sonnet-4-6",
+    #     max_tokens=512,
+    #     system=SYSTEM_PROMPT,
+    #     messages=history,
+    # )
+    # reply_text = response.content[0].text
+    response = asi_client.chat.completions.create(
+        model="asi1-mini",
         max_tokens=512,
-        system=SYSTEM_PROMPT,
-        messages=history,
+        messages=[{"role": "system", "content": SYSTEM_PROMPT}, *history],
     )
-    reply_text = response.content[0].text
+    reply_text = response.choices[0].message.content
 
     routing = _try_parse_routing(reply_text)
 
