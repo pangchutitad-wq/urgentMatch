@@ -1,4 +1,4 @@
-# 🏥 UrgentMatch
+# 🏥 UrgentLA
 
 > AI-powered urgent care routing — match your symptoms to the right clinic, right now.
 
