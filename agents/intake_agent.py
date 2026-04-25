@@ -8,13 +8,15 @@ from uuid import uuid4
 from dotenv import load_dotenv
 # import anthropic
 from openai import OpenAI
-from uagents import Agent, Context
+from uagents import Agent, Context, Protocol
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
     ChatMessage,
     TextContent,
-    chat_proto,
+    chat_protocol_spec,
 )
+
+chat_proto = Protocol(spec=chat_protocol_spec)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.models import MatchRequest, MatchResponse
@@ -23,7 +25,7 @@ load_dotenv()
 
 # ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 ASI1_API_KEY = os.environ["ASI1_API_KEY"]
-MATCHER_AGENT_ADDRESS = os.environ["MATCHER_AGENT_ADDRESS"]
+MATCHER_AGENT_ADDRESS = os.getenv("MATCHER_AGENT_ADDRESS", "")
 INTAKE_SEED = os.getenv("INTAKE_SEED", "urgentmatch-intake-seed")
 
 DEFAULT_LA_LAT = 34.0522
@@ -64,6 +66,7 @@ agent = Agent(
     seed=INTAKE_SEED,
     port=8000,
     endpoint=["http://localhost:8000/submit"],
+    mailbox=True,
 )
 
 # Per-sender conversation history: sender_address -> list of {role, content} dicts
@@ -101,6 +104,11 @@ def _format_clinic_list(clinics: list) -> str:
             f"   Estimated wait: ~{c.etaMinutes} min"
         )
     return "\n".join(lines)
+
+
+@chat_proto.on_message(ChatAcknowledgement)
+async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
+    pass
 
 
 @chat_proto.on_message(ChatMessage)
@@ -141,6 +149,17 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
                     content=[TextContent(
                         text="🚨 This sounds like a medical emergency. Call 911 immediately — do not drive to urgent care."
                     )],
+                ),
+            )
+            return
+
+        if not MATCHER_AGENT_ADDRESS:
+            ctx.logger.warning("MATCHER_AGENT_ADDRESS not set — skipping clinic lookup")
+            await ctx.send(
+                sender,
+                ChatMessage(
+                    msg_id=uuid4(),
+                    content=[TextContent(text=f"[dev] Routing complete: specialty={routing['specialty']}, urgency={routing['urgency']}. Matcher not connected yet.")],
                 ),
             )
             return
