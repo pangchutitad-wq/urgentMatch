@@ -1,0 +1,4 @@
+uagents>=0.13
+uagents-core>=0.1
+anthropic>=0.28
+python-dotenv>=1.0
