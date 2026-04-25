@@ -1,5 +1,5 @@
 SPECIALTY_KEYWORDS = {
-    "orthopedic": ["sprain", "fracture", "broken", "back", "join", "swollen", "ankle", "knee", "shoulder", "elbow", "wrist", "hip", "leg", "foot", "toe"],
+    "orthopedic": ["sprain", "fracture", "broken", "back", "joint", "swollen", "ankle", "knee", "shoulder", "elbow", "wrist", "hip", "leg", "foot", "toe"],
     "respiratory": ["sneeze", "sneezing", "sore throat", "mucus", "cough", "congestion", "flu", "shortness of breath", "chest pain", "difficulty breathing"],
     "gastrointestinal": ["nausea", "vomiting", "diarrhea", "constipation", "abdominal pain", "heartburn", "gas"],
     "dermatology": ["face", "skin", "acne", "eczema", "psoriasis", "rosacea", "dermatitis", "pimple", "blackhead", "whitehead"],
