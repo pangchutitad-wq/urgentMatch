@@ -11,7 +11,8 @@ class MatchRequest(Model):
     user_lat: float
     user_lon: float
 
-#what gets sent to the frontend
+
+# what gets sent to the frontend
 class ClinicResult(Model):
     name: str
     address: str
@@ -43,5 +44,5 @@ class Clinic:
 
 class MatchResponse(Model):
     session_id: str
-    clinics: list[ClinicResult]
+    clinics: List[ClinicResult]
     error: Optional[str] = None

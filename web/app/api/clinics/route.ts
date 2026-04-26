@@ -1,5 +1,20 @@
-const PLACES_URL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+const PLACES_V1 = 'https://places.googleapis.com/v1'
 const RADIUS_METERS = 24140 // 15 miles
+/** When the client omits coordinates (e.g. location denied), use central LA for real Places results. */
+const DEFAULT_LA = { lat: 34.0522, lon: -118.2437 }
+
+/** Fields to return; required by Places API (New). No spaces in the list. @see https://developers.google.com/maps/documentation/places/web-service/nearby-search */
+const PLACES_FIELD_MASK = [
+  'places.id',
+  'places.displayName',
+  'places.formattedAddress',
+  'places.location',
+  'places.rating',
+  'places.userRatingCount',
+  'places.types',
+  'places.googleMapsUri',
+  'places.currentOpeningHours',
+].join(',')
 
 interface Clinic {
   name: string
@@ -14,6 +29,11 @@ interface Clinic {
   reviewCount: number
   openNow: boolean
   mapsUrl: string
+  placeId: string
+  lat: number
+  lon: number
+  /** From Google `types` — helps users see hospital vs walk-in clinic. */
+  facilityLabel: string
 }
 
 const FALLBACK_CLINICS: Clinic[] = [
@@ -23,6 +43,10 @@ const FALLBACK_CLINICS: Clinic[] = [
     matchPercent: 88, etaMinutes: 18, specialty: 'general',
     currentPatients: 8, capacity: 25, doctorsOnDuty: 3,
     rating: 4.2, reviewCount: 1823, openNow: true,
+    placeId: '',
+    lat: 34.0901,
+    lon: -118.3834,
+    facilityLabel: 'Urgent care',
     mapsUrl: 'https://maps.google.com/?q=CityMD+Urgent+Care+West+Hollywood',
   },
   {
@@ -31,6 +55,10 @@ const FALLBACK_CLINICS: Clinic[] = [
     matchPercent: 92, etaMinutes: 10, specialty: 'general',
     currentPatients: 4, capacity: 20, doctorsOnDuty: 2,
     rating: 4.4, reviewCount: 290, openNow: true,
+    placeId: '',
+    lat: 34.0992,
+    lon: -118.2689,
+    facilityLabel: 'Urgent care',
     mapsUrl: 'https://maps.google.com/?q=MedPost+Urgent+Care+Silver+Lake',
   },
   {
@@ -39,6 +67,10 @@ const FALLBACK_CLINICS: Clinic[] = [
     matchPercent: 85, etaMinutes: 20, specialty: 'general',
     currentPatients: 9, capacity: 32, doctorsOnDuty: 5,
     rating: 4.3, reviewCount: 1105, openNow: true,
+    placeId: '',
+    lat: 34.0259,
+    lon: -118.4936,
+    facilityLabel: 'Urgent care',
     mapsUrl: 'https://maps.google.com/?q=UCLA+Health+Urgent+Care+Santa+Monica',
   },
 ]
@@ -68,6 +100,18 @@ function inferSpecialties(name: string): string[] {
   return ['general']
 }
 
+function labelFromTypes(types: string[] | undefined, name: string): string {
+  const t = types ?? []
+  const n = name.toLowerCase()
+  if (t.includes('hospital') || n.includes('hospital') || n.includes('medical center')) {
+    return 'Hospital'
+  }
+  if (t.includes('doctor') || n.includes('urgent') || n.includes('clinic')) {
+    return 'Urgent care / clinic'
+  }
+  return 'Care facility'
+}
+
 function matchPercent(specialties: string[], requested: string, load: number): number {
   let base: number
   if (specialties.includes(requested)) {
@@ -77,61 +121,137 @@ function matchPercent(specialties: string[], requested: string, load: number): n
   } else {
     base = 40
   }
-  // Better score for lower load
   return Math.min(100, Math.round(base + (1 - load) * 10))
 }
 
-interface PlacesResult {
-  place_id: string
-  name: string
-  vicinity: string
+/** https://developers.google.com/maps/documentation/places/web-service/reference/rest/v1/places */
+interface PlaceV1 {
+  id?: string
+  displayName?: { text?: string; languageCode?: string }
+  formattedAddress?: string
+  location?: { latitude?: number; longitude?: number }
   rating?: number
-  user_ratings_total?: number
-  opening_hours?: { open_now?: boolean }
+  userRatingCount?: number
+  types?: string[]
+  googleMapsUri?: string
+  currentOpeningHours?: { openNow?: boolean }
+}
+
+async function postPlaces(
+  apiKey: string,
+  path: 'searchNearby' | 'searchText',
+  body: Record<string, unknown>,
+): Promise<PlaceV1[]> {
+  const res = await fetch(`${PLACES_V1}/places:${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': PLACES_FIELD_MASK,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) return []
+  const data = (await res.json()) as { places?: PlaceV1[]; error?: { status?: string; message?: string } }
+  if (data.error) return []
+  return data.places ?? []
+}
+
+function locationCircle(lat: number, lon: number) {
+  return {
+    circle: {
+      center: { latitude: lat, longitude: lon },
+      radius: RADIUS_METERS,
+    },
+  }
+}
+
+/** Text search (urgent care) first, then nearby hospitals; dedupe by place `id`. */
+function mergePlaces(urgent: PlaceV1[], hospitals: PlaceV1[]): PlaceV1[] {
+  const seen = new Set<string>()
+  const out: PlaceV1[] = []
+  for (const p of urgent) {
+    const id = p.id
+    if (id && !seen.has(id)) {
+      seen.add(id)
+      out.push(p)
+    }
+  }
+  for (const p of hospitals) {
+    const id = p.id
+    if (id && !seen.has(id) && out.length < 24) {
+      seen.add(id)
+      out.push(p)
+    }
+  }
+  return out
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const specialty = searchParams.get('specialty') ?? 'general'
-  const lat = parseFloat(searchParams.get('lat') ?? '')
-  const lon = parseFloat(searchParams.get('lon') ?? '')
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY
+  let lat = parseFloat(searchParams.get('lat') ?? '')
+  let lon = parseFloat(searchParams.get('lon') ?? '')
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
+    lat = DEFAULT_LA.lat
+    lon = DEFAULT_LA.lon
+  }
 
-  if (!apiKey || isNaN(lat) || isNaN(lon)) {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY
+
+  if (!apiKey) {
     return Response.json(FALLBACK_CLINICS)
   }
 
-  const params = new URLSearchParams({
-    location: `${lat},${lon}`,
-    radius: String(RADIUS_METERS),
-    keyword: 'urgent care',
-    key: apiKey,
-  })
-
-  let rawResults: PlacesResult[] = []
+  let merged: PlaceV1[] = []
   try {
-    const res = await fetch(`${PLACES_URL}?${params}`)
-    const data = (await res.json()) as { status: string; results: PlacesResult[] }
-    if (data.status === 'OK') rawResults = data.results
+    const [textRows, hospitalRows] = await Promise.all([
+      postPlaces(apiKey, 'searchText', {
+        textQuery: 'urgent care',
+        languageCode: 'en',
+        regionCode: 'US',
+        pageSize: 20,
+        locationBias: locationCircle(lat, lon),
+      }),
+      postPlaces(apiKey, 'searchNearby', {
+        includedTypes: ['hospital'],
+        maxResultCount: 20,
+        languageCode: 'en',
+        regionCode: 'US',
+        locationRestriction: locationCircle(lat, lon),
+      }),
+    ])
+    merged = mergePlaces(textRows, hospitalRows)
   } catch {
     return Response.json(FALLBACK_CLINICS)
   }
 
-  if (!rawResults.length) return Response.json(FALLBACK_CLINICS)
+  if (!merged.length) return Response.json(FALLBACK_CLINICS)
 
-  // Assign stable simulated operational data per place_id using a simple hash
-  const clinics: Clinic[] = rawResults.slice(0, 8).map((p) => {
-    const seed = p.place_id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-    const capacity = 15 + (seed % 20)           // 15–34
-    const currentPatients = (seed * 3) % capacity
+  const clinics: Clinic[] = merged.slice(0, 20).map((p) => {
+    const name = p.displayName?.text ?? 'Unknown'
+    const seed = (p.id ?? name).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+    const capacity = 15 + (seed % 20)
+    const currentPatients = (seed * 3) % Math.max(capacity, 1)
     const etaMinutes = 5 + currentPatients * 2
-    const doctorsOnDuty = 1 + (seed % 4)        // 1–4
+    const doctorsOnDuty = 1 + (seed % 4)
     const load = currentPatients / capacity
-    const specialties = inferSpecialties(p.name)
+    const specialties = inferSpecialties(name)
+    const plat = p.location?.latitude ?? lat
+    const plon = p.location?.longitude ?? lon
+    const addr = p.formattedAddress ?? ''
+    const label = labelFromTypes(p.types, name)
+    const openNow = p.currentOpeningHours?.openNow ?? true
+    const dest =
+      p.googleMapsUri && p.googleMapsUri.length > 0
+        ? p.googleMapsUri
+        : p.id
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${encodeURIComponent(p.id)}`
+          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${addr}`)}`
 
     return {
-      name: p.name,
-      address: p.vicinity ?? '',
+      name,
+      address: addr,
       matchPercent: matchPercent(specialties, specialty, load),
       etaMinutes,
       specialty: specialties[0],
@@ -139,13 +259,16 @@ export async function GET(request: Request) {
       capacity,
       doctorsOnDuty,
       rating: p.rating ?? 0,
-      reviewCount: p.user_ratings_total ?? 0,
-      openNow: p.opening_hours?.open_now ?? true,
-      mapsUrl: `https://maps.google.com/?q=${encodeURIComponent(p.name + ' ' + (p.vicinity ?? ''))}`,
+      reviewCount: p.userRatingCount ?? 0,
+      openNow,
+      placeId: p.id ?? '',
+      lat: plat,
+      lon: plon,
+      facilityLabel: label,
+      mapsUrl: dest,
     }
   })
 
-  // Sort by matchPercent desc, return top 3
   clinics.sort((a, b) => b.matchPercent - a.matchPercent)
-  return Response.json(clinics.slice(0, 3))
+  return Response.json(clinics.slice(0, 10))
 }

@@ -12,17 +12,17 @@ from dotenv import load_dotenv
 # import anthropic
 from openai import OpenAI
 from uagents import Agent, Context, Protocol
-from uagents_core.contrib.protocols.chat import (
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lib.chat_protocol import (
     ChatAcknowledgement,
     ChatMessage,
     StartSessionContent,
     TextContent,
-    chat_protocol_spec,
 )
 
-chat_proto = Protocol(spec=chat_protocol_spec)
+chat_proto = Protocol(name="AgentChatProtocol", version="0.3.0")
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.models import MatchRequest, MatchResponse
 
 load_dotenv()
@@ -90,6 +90,8 @@ def _extract_text(msg: ChatMessage) -> str:
     for part in msg.content:
         if isinstance(part, TextContent):
             return part.text
+        if isinstance(part, dict) and part.get("type") == "text":
+            return str(part.get("text", ""))
     return ""
 
 
