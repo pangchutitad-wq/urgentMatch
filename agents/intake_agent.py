@@ -5,6 +5,7 @@ import sys
 from typing import Optional
 from uuid import uuid4
 
+import httpx
 from dotenv import load_dotenv
 # import anthropic
 from openai import OpenAI
@@ -25,19 +26,21 @@ load_dotenv()
 
 # ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 ASI1_API_KEY = os.environ["ASI1_API_KEY"]
+GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "")
 MATCHER_AGENT_ADDRESS = os.getenv("MATCHER_AGENT_ADDRESS", "")
 INTAKE_SEED = os.getenv("INTAKE_SEED", "urgentmatch-intake-seed")
 
-DEFAULT_LA_LAT = 34.0522
-DEFAULT_LA_LON = -118.2437
+FALLBACK_LAT = 34.0522  # downtown LA — only used if geocoding fails
+FALLBACK_LON = -118.2437
 
 SYSTEM_PROMPT = """\
 You are a medical intake assistant for UrgentMatch — NOT a diagnostic tool.
 Your only job is to identify which clinic type the patient needs, not what is wrong with them.
 Ask 1-2 short clarifying questions to understand the symptoms and situation.
+Also ask where the patient is located (city, neighborhood, or zip code) so you can find nearby clinics.
 
 When you have enough information, output ONLY valid JSON with no other text:
-{"specialty": "<general|orthopedic|respiratory|gastrointestinal|dermatology|pediatric>", "urgency": <1-10>, "redFlag": <true|false>}
+{"specialty": "<general|orthopedic|respiratory|gastrointestinal|dermatology|pediatric>", "urgency": <1-10>, "redFlag": <true|false>, "location": "<city and state or zip code the user provided, or null if not given>"}
 
 Specialty guidelines:
 - general: cold, fever, fatigue, mild illness, minor infections
@@ -95,13 +98,33 @@ def _try_parse_routing(text: str) -> Optional[dict]:
     return None
 
 
+async def _geocode(location_str: str) -> tuple[float, float]:
+    if not GOOGLE_PLACES_API_KEY or not location_str:
+        return FALLBACK_LAT, FALLBACK_LON
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                "https://maps.googleapis.com/maps/api/geocode/json",
+                params={"address": location_str, "key": GOOGLE_PLACES_API_KEY},
+            )
+            data = resp.json()
+        if data.get("status") == "OK" and data.get("results"):
+            loc = data["results"][0]["geometry"]["location"]
+            return loc["lat"], loc["lng"]
+    except Exception:
+        pass
+    return FALLBACK_LAT, FALLBACK_LON
+
+
 def _format_clinic_list(clinics: list) -> str:
     lines = ["Here are the best urgent care options nearby:\n"]
     for i, c in enumerate(clinics, 1):
         lines.append(
             f"{i}. **{c.name}** — {c.matchPercent}% match\n"
             f"   {c.address}\n"
-            f"   Estimated wait: ~{c.etaMinutes} min"
+            f"   ⏱️ Estimated wait: ~{c.etaMinutes} min\n"
+            f"   👥 Patient load: {c.currentPatients}/{c.capacity}\n"
+            f"   👨‍⚕️ Doctors on duty: {c.doctorsOnDuty}"
         )
     return "\n".join(lines)
 
@@ -153,13 +176,15 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
             )
             return
 
+        user_lat, user_lon = await _geocode(routing.get("location") or "")
+
         if not MATCHER_AGENT_ADDRESS:
             ctx.logger.warning("MATCHER_AGENT_ADDRESS not set — skipping clinic lookup")
             await ctx.send(
                 sender,
                 ChatMessage(
                     msg_id=uuid4(),
-                    content=[TextContent(text=f"[dev] Routing complete: specialty={routing['specialty']}, urgency={routing['urgency']}. Matcher not connected yet.")],
+                    content=[TextContent(text=f"[dev] Routing complete: specialty={routing['specialty']}, urgency={routing['urgency']}, location=({user_lat:.4f},{user_lon:.4f}). Matcher not connected yet.")],
                 ),
             )
             return
@@ -170,8 +195,8 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
                 session_id=sender,
                 specialty=routing["specialty"],
                 urgency=int(routing["urgency"]),
-                user_lat=DEFAULT_LA_LAT,
-                user_lon=DEFAULT_LA_LON,
+                user_lat=user_lat,
+                user_lon=user_lon,
             ),
         )
     else:

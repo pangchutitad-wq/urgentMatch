@@ -18,17 +18,28 @@ class ClinicResult(Model):
     matchPercent: int
     etaMinutes: int
     specialty: str
+    currentPatients: int
+    capacity: int
+    doctorsOnDuty: int = 0
+    rating: float = 0.0
+    reviewCount: int = 0
+    openNow: bool = True
+    mapsUrl: str = ""
 
 #for backend scoring logic
-class Clinic():
+@dataclass
+class Clinic:
     name: str 
     address: str
     lat: float
     lon: float
-    specialties: list[str] #clinic specialties 
+    specialties: list[str]
     current_patients: int
     capacity: int
-    eta_minutes: int #wait time
+    eta_minutes: int
+    rating: float = 0.0
+    open_now: bool = True
+    place_id: str = ""
 
 class MatchResponse(Model):
     session_id: str

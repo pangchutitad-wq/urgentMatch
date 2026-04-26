@@ -21,6 +21,8 @@ export default function ChatPage() {
   const [listening, setListening] = useState(false)
   const [emergency, setEmergency] = useState(false)
   const [image, setImage] = useState<string | null>(null)
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
+  const [locationStatus, setLocationStatus] = useState<'pending' | 'granted' | 'denied'>('pending')
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -30,6 +32,20 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus('denied')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+        setLocationStatus('granted')
+      },
+      () => setLocationStatus('denied'),
+    )
+  }, [])
 
   const toggleVoice = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,7 +117,8 @@ export default function ChatPage() {
           setEmergency(true)
           return
         }
-        window.location.href = `/results?specialty=${data.specialty}&urgency=${data.urgency}`
+        const geo = coords ? `&lat=${coords.lat}&lon=${coords.lon}` : ''
+        window.location.href = `/results?specialty=${data.specialty}&urgency=${data.urgency}${geo}`
         return
       }
 
@@ -141,10 +158,19 @@ export default function ChatPage() {
       {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
         <Image src="/logo.PNG" alt="UrgentMatch logo" width={50} height={20} priority />
-        <div>
+        <div className="flex-1">
           <p className="font-semibold text-gray-900 text-sm">UrgentMatch</p>
           <p className="text-xs text-gray-400">Finding the right care for you</p>
         </div>
+        {locationStatus === 'pending' && (
+          <span className="text-xs text-gray-400 animate-pulse">📍 locating…</span>
+        )}
+        {locationStatus === 'granted' && (
+          <span className="text-xs text-green-600">📍 location on</span>
+        )}
+        {locationStatus === 'denied' && (
+          <span className="text-xs text-gray-400" title="Enable location for nearby results">📍 off</span>
+        )}
       </div>
 
       {/* Messages */}

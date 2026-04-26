@@ -1,3 +1,7 @@
+from lib.distance import haversine
+from lib.models import Clinic
+
+
 def score_clinic(clinic: Clinic, specialty: str, user_lat: float, user_lon: float) -> float:
     distance = haversine(user_lat, user_lon, clinic.lat, clinic.lon)
     if distance > 15: 
