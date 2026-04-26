@@ -269,7 +269,6 @@ python agents/matcher_agent.py
 | Today's hours | Google Places API (New) | ✅ Real |
 | Rating + review count | Google Places API (New) | ✅ Real |
 | Wait time | Time-of-day busyness curve | 🔄 Estimated |
-| Doctors on duty | Random (2–4 per clinic) | 🔄 Estimated |
 
 ---
 
