@@ -30,6 +30,11 @@ async def handle_match_request(ctx: Context, sender: str, msg: MatchRequest):
             matchPercent=round(score * 100), #bc score is 0-1
             etaMinutes=clinic.eta_minutes,
             specialty=clinic.specialties[0]
+            currentPatients=clinic.current_patients,
+            capacity=clinic.capacity,
+            rating=clinic.rating,
+            openNow=clinic.open_now,
+            mapsUrl=f"https://www.google.com/maps/place/?q=place_id:{clinic.place_id}" if clinic.place_id else ""
         )
         for score, clinic in ranked
     ]
