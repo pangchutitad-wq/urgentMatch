@@ -1,7 +1,9 @@
+import asyncio
 import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
@@ -15,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.chat_protocol import (
     ChatAcknowledgement,
     ChatMessage,
+    StartSessionContent,
     TextContent,
 )
 
@@ -62,18 +65,25 @@ Rules:
 """
 
 # claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-asi_client = OpenAI(api_key=ASI1_API_KEY, base_url="https://api.asi1.ai/v1")
+asi_client = OpenAI(api_key=ASI1_API_KEY, base_url="https://api.asi1.ai/v1", timeout=30.0)
 
 agent = Agent(
     name="urgentmatch-intake",
     seed=INTAKE_SEED,
     port=8000,
-    endpoint=["http://localhost:8000/submit"],
     mailbox=True,
 )
 
 # Per-sender conversation history: sender_address -> list of {role, content} dicts
 sessions: dict[str, list[dict]] = {}
+
+
+def _make_chat(text: str) -> ChatMessage:
+    return ChatMessage(
+        timestamp=datetime.now(timezone.utc),
+        msg_id=uuid4(),
+        content=[TextContent(type="text", text=text)],
+    )
 
 
 def _extract_text(msg: ChatMessage) -> str:
@@ -86,17 +96,21 @@ def _extract_text(msg: ChatMessage) -> str:
 
 
 def _try_parse_routing(text: str) -> Optional[dict]:
-    """Return parsed routing dict if Claude output is a valid routing decision, else None."""
-    stripped = text.strip()
-    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", stripped, re.DOTALL)
-    if match:
-        stripped = match.group(1)
-    try:
-        data = json.loads(stripped)
-        if all(k in data for k in ("specialty", "urgency", "redFlag")):
-            return data
-    except (json.JSONDecodeError, ValueError):
-        pass
+    if not text:
+        return None
+    # Try code block first, then bare JSON object anywhere in the text
+    for pattern in (
+        r"```(?:json)?\s*(\{[\s\S]*?\})\s*```",
+        r"(\{[\s\S]*?\})",
+    ):
+        m = re.search(pattern, text)
+        if m:
+            try:
+                data = json.loads(m.group(1))
+                if all(k in data for k in ("specialty", "urgency", "redFlag")):
+                    return data
+            except (json.JSONDecodeError, ValueError):
+                continue
     return None
 
 
@@ -138,28 +152,45 @@ async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
 
 @chat_proto.on_message(ChatMessage)
 async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
-    await ctx.send(sender, ChatAcknowledgement(acknowledged_msg_id=msg.msg_id))
+    await ctx.send(sender, ChatAcknowledgement(
+        timestamp=datetime.now(timezone.utc),
+        acknowledged_msg_id=msg.msg_id,
+    ))
 
-    user_text = _extract_text(msg)
+    user_text = ""
+    for item in msg.content:
+        if isinstance(item, StartSessionContent):
+            ctx.logger.info(f"Session started by {sender[:16]}…")
+            await ctx.send(sender, _make_chat(
+                "Hi! I'm here to help you find the right urgent care. What's bringing you in today?"
+            ))
+            return
+        elif isinstance(item, TextContent):
+            user_text = item.text
+        else:
+            ctx.logger.info(f"Unexpected content type: {type(item)}")
+
     if not user_text:
         return
 
+    ctx.storage.set(str(ctx.session), sender)
     history = sessions.setdefault(sender, [])
     history.append({"role": "user", "content": user_text})
 
-    # response = claude.messages.create(
-    #     model="claude-sonnet-4-6",
-    #     max_tokens=512,
-    #     system=SYSTEM_PROMPT,
-    #     messages=history,
-    # )
-    # reply_text = response.content[0].text
-    response = asi_client.chat.completions.create(
-        model="asi1-mini",
-        max_tokens=512,
-        messages=[{"role": "system", "content": SYSTEM_PROMPT}, *history],
-    )
-    reply_text = response.choices[0].message.content
+    ctx.logger.info(f"Calling ASI1 for sender {sender[:16]}… message: {user_text[:60]}")
+    try:
+        response = await asyncio.to_thread(
+            asi_client.chat.completions.create,
+            model="asi1-mini",
+            max_tokens=512,
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}, *history],
+        )
+        reply_text = response.choices[0].message.content or ""
+        ctx.logger.info(f"ASI1 replied: {reply_text[:80]}")
+    except Exception as exc:
+        ctx.logger.error(f"ASI1 API error: {exc}")
+        await ctx.send(sender, _make_chat("Sorry, I'm having trouble connecting. Please try again."))
+        return
 
     routing = _try_parse_routing(reply_text)
 
@@ -167,28 +198,14 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
         sessions.pop(sender, None)
 
         if routing["redFlag"]:
-            await ctx.send(
-                sender,
-                ChatMessage(
-                    msg_id=uuid4(),
-                    content=[TextContent(
-                        text="🚨 This sounds like a medical emergency. Call 911 immediately — do not drive to urgent care."
-                    )],
-                ),
-            )
+            await ctx.send(sender, _make_chat("🚨 This sounds like a medical emergency. Call 911 immediately — do not drive to urgent care."))
             return
 
         user_lat, user_lon = await _geocode(routing.get("location") or "")
 
         if not MATCHER_AGENT_ADDRESS:
             ctx.logger.warning("MATCHER_AGENT_ADDRESS not set — skipping clinic lookup")
-            await ctx.send(
-                sender,
-                ChatMessage(
-                    msg_id=uuid4(),
-                    content=[TextContent(text=f"[dev] Routing complete: specialty={routing['specialty']}, urgency={routing['urgency']}, location=({user_lat:.4f},{user_lon:.4f}). Matcher not connected yet.")],
-                ),
-            )
+            await ctx.send(sender, _make_chat(f"[dev] Routing complete: specialty={routing['specialty']}, urgency={routing['urgency']}, location=({user_lat:.4f},{user_lon:.4f}). Matcher not connected yet."))
             return
 
         await ctx.send(
@@ -203,13 +220,7 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
         )
     else:
         history.append({"role": "assistant", "content": reply_text})
-        await ctx.send(
-            sender,
-            ChatMessage(
-                msg_id=uuid4(),
-                content=[TextContent(text=reply_text)],
-            ),
-        )
+        await ctx.send(sender, _make_chat(reply_text))
 
 
 @agent.on_message(MatchResponse)
@@ -221,13 +232,7 @@ async def handle_match_response(ctx: Context, sender: str, msg: MatchResponse):
     else:
         reply = _format_clinic_list(msg.clinics)
 
-    await ctx.send(
-        msg.session_id,
-        ChatMessage(
-            msg_id=uuid4(),
-            content=[TextContent(text=reply)],
-        ),
-    )
+    await ctx.send(msg.session_id, _make_chat(reply))
 
 
 agent.include(chat_proto, publish_manifest=True)

@@ -3,7 +3,7 @@ from typing import Optional
 
 from uagents import Model
 
-
+#inheriting from model 
 class MatchRequest(Model):
     session_id: str
     specialty: str
