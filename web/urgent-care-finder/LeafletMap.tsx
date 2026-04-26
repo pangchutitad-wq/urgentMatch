@@ -132,34 +132,28 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
     }
     setLocationDenied(false)
 
-    const onSuccess = (pos: GeolocationPosition) => {
+    const handleSuccess = (pos: GeolocationPosition) => {
       const lat = pos.coords.latitude
       const lng = pos.coords.longitude
       if (isValidCoord(lat, lng)) setUserPos([lat, lng])
     }
 
-    const onError = (err: GeolocationPositionError) => {
-      if (err.code === err.PERMISSION_DENIED) {
-        // Only show the banner when the user explicitly blocked location.
-        setLocationDenied(true)
-        return
-      }
-      // TIMEOUT or POSITION_UNAVAILABLE — retry without high-accuracy GPS.
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
-      }
-      watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, () => {}, {
-        enableHighAccuracy: false,
-        timeout: 15000,
-        maximumAge: 10000,
-      })
+    const handleError = (err: GeolocationPositionError) => {
+      if (err.code === err.PERMISSION_DENIED) setLocationDenied(true)
+      // TIMEOUT / POSITION_UNAVAILABLE: stay silent, watchPosition may still deliver later.
     }
 
-    watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, {
-      enableHighAccuracy: true,
-      timeout: 8000,
-      maximumAge: 5000,
-    })
+    const opts: PositionOptions = {
+      enableHighAccuracy: false, // WiFi/IP triangulation — works on all desktops
+      timeout: 30000,
+      maximumAge: 60000,
+    }
+
+    // Immediate one-shot fix so the dot appears quickly without waiting for the watcher.
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, opts)
+
+    // Keep updating position in real time.
+    watchIdRef.current = navigator.geolocation.watchPosition(handleSuccess, handleError, opts)
   }
 
   useEffect(() => {
