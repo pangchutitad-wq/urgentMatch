@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { clinics } from '@/data/clinics'
+import type { Clinic } from '@/data/clinics'
 
 function waitColor(minutes: number) {
   if (minutes <= 15) return '#22c55e'
@@ -78,7 +78,7 @@ function isValidCoord(lat: number, lng: number) {
   )
 }
 
-function FlyTo({ highlighted }: { highlighted: number | null }) {
+function FlyTo({ highlighted, clinics }: { highlighted: number | null; clinics: Clinic[] }) {
   const map = useMap()
   useEffect(() => {
     const id = highlighted != null && Number.isFinite(highlighted) ? highlighted : null
@@ -101,11 +101,12 @@ function FlyTo({ highlighted }: { highlighted: number | null }) {
   return null
 }
 
+// TO:
 interface Props {
   highlighted: number | null
+  clinics: Clinic[]
 }
-
-export default function LeafletMap({ highlighted }: Props) {
+export default function LeafletMap({ highlighted, clinics }: Props) {
   const [userPos, setUserPos] = useState<[number, number] | null>(null)
 
   useEffect(() => {
@@ -135,7 +136,7 @@ export default function LeafletMap({ highlighted }: Props) {
         maxZoom={19}
       />
 
-      <FlyTo highlighted={highlighted} />
+      <FlyTo highlighted={highlighted} clinics={clinics} />
 
       {userPos && isValidCoord(userPos[0], userPos[1]) && (
         <Fragment>

@@ -17,6 +17,10 @@ interface Clinic {
   reviewCount: number
   openNow: boolean
   mapsUrl: string
+  placeId?: string
+  lat?: number
+  lon?: number
+  facilityLabel?: string
 }
 
 const FALLBACK: Clinic[] = [
@@ -26,6 +30,7 @@ const FALLBACK: Clinic[] = [
     matchPercent: 88, etaMinutes: 18, specialty: 'general',
     currentPatients: 8, capacity: 25, doctorsOnDuty: 3,
     rating: 4.2, reviewCount: 1823, openNow: true,
+    facilityLabel: 'Urgent care',
     mapsUrl: 'https://maps.google.com/?q=CityMD+Urgent+Care+West+Hollywood',
   },
   {
@@ -34,6 +39,7 @@ const FALLBACK: Clinic[] = [
     matchPercent: 92, etaMinutes: 10, specialty: 'general',
     currentPatients: 4, capacity: 20, doctorsOnDuty: 2,
     rating: 4.4, reviewCount: 290, openNow: true,
+    facilityLabel: 'Urgent care',
     mapsUrl: 'https://maps.google.com/?q=MedPost+Urgent+Care+Silver+Lake',
   },
   {
@@ -42,6 +48,7 @@ const FALLBACK: Clinic[] = [
     matchPercent: 85, etaMinutes: 20, specialty: 'general',
     currentPatients: 9, capacity: 32, doctorsOnDuty: 5,
     rating: 4.3, reviewCount: 1105, openNow: true,
+    facilityLabel: 'Urgent care',
     mapsUrl: 'https://maps.google.com/?q=UCLA+Health+Urgent+Care+Santa+Monica',
   },
 ]
@@ -142,7 +149,9 @@ function ResultsContent() {
           {SPECIALTY_LABELS[specialty] ?? specialty} care
         </span>
         <p className="text-gray-500 text-xs mt-1">
-          {lat ? 'Nearest clinics ranked by match' : 'Top-rated LA clinics ranked by match'}
+          {lat
+            ? 'Nearby places from Google Maps (urgent care + hospitals), ranked by match'
+            : 'LA-area places from Google Maps (downtown default), ranked by match'}
         </p>
       </div>
 
@@ -163,6 +172,12 @@ function ResultsContent() {
                   {clinic.openNow ? 'Open' : 'Closed'}
                 </span>
               </div>
+
+              {clinic.facilityLabel && (
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1 font-medium">
+                  {clinic.facilityLabel}
+                </p>
+              )}
 
               <p className="text-gray-500 text-xs mb-2">{clinic.address}</p>
 

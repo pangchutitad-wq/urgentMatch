@@ -3,14 +3,12 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { clinics, MatchResult } from '@/data/clinics'
-import ClinicCard from './ClinicCard'
+import ClinicCard from '../../urgent-care-finder/ClinicCard'
 
-const LeafletMap = dynamic(() => import('./LeafletMap'), {
+const LeafletMap = dynamic(() => import('../../urgent-care-finder/LeafletMap'), {
   ssr: false,
   loading: () => <div className="h-full w-full animate-pulse rounded-2xl bg-[#0d1117]" />,
 })
-
-type SortKey = 'wait_time' | 'doctors'
 
 interface Props {
   query: string
@@ -318,7 +316,6 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
 
 export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
   const [emergency, setEmergency] = useState(false)
-  const [sortKey, setSortKey] = useState<SortKey>('wait_time')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [draft, setDraft] = useState(query)
   const [matchMap, setMatchMap] = useState<MatchMap | null>(null)
@@ -329,9 +326,7 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
 
   const sorted = matchMap
     ? [...clinics].sort((a, b) => (matchMap[b.id]?.match_score ?? 0) - (matchMap[a.id]?.match_score ?? 0))
-    : [...clinics].sort((a, b) =>
-        sortKey === 'wait_time' ? a.wait_time - b.wait_time : b.doctors.length - a.doctors.length,
-      )
+    : [...clinics].sort((a, b) => a.wait_time - b.wait_time)
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -450,28 +445,6 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
                   </p>
                 ) : null}
               </div>
-              {!matchMap && (
-                <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-                  <button
-                    type="button"
-                    onClick={() => setSortKey('wait_time')}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      sortKey === 'wait_time' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    Wait time
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSortKey('doctors')}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      sortKey === 'doctors' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    # Doctors
-                  </button>
-                </div>
-              )}
             </div>
             <div className="mb-3 flex items-center gap-3 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">

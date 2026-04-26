@@ -1,16 +1,14 @@
 'use client'
-
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
-import { clinics, MatchResult } from '@/data/clinics'
+import { MatchResult } from '@/data/clinics'
+import type { Clinic } from '@/data/clinics'
 import ClinicCard from './ClinicCard'
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
   loading: () => <div className="h-full w-full animate-pulse rounded-2xl bg-[#0d1117]" />,
 })
-
-type SortKey = 'wait_time' | 'doctors'
 
 interface Props {
   query: string
@@ -86,6 +84,8 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
   const [thinking, setThinking] = useState(false)
   const [userLoc, setUserLoc] = useState(LA_DEFAULT)
   const [locLabel, setLocLabel] = useState('Central LA')
+  const [clinics, setClinics] = useState<Clinic[]>([])
+
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -318,10 +318,29 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
 
 export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
   const [emergency, setEmergency] = useState(false)
-  const [sortKey, setSortKey] = useState<SortKey>('wait_time')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [draft, setDraft] = useState(query)
   const [matchMap, setMatchMap] = useState<MatchMap | null>(null)
+  const [clinics, setClinics] = useState<Clinic[]>([])
+  useEffect(() => {
+    fetch("/api/clinics")
+      .then((r) => r.json())
+      .then((data) => {
+        const mapped: Clinic[] = data.map((c: any, i: number) => ({
+          id: i + 1,
+          name: c.name,
+          address: c.address,
+          lat: c.lat,
+          lng: c.lon,
+          wait_time: c.etaMinutes,
+          specializations: [],
+          doctors: [],
+          phone: "",
+          hours: c.openNow ? "Open now" : "Closed",
+        }))
+        setClinics(mapped)
+      })
+  }, [])
 
   useEffect(() => {
     setDraft(query)
@@ -329,9 +348,7 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
 
   const sorted = matchMap
     ? [...clinics].sort((a, b) => (matchMap[b.id]?.match_score ?? 0) - (matchMap[a.id]?.match_score ?? 0))
-    : [...clinics].sort((a, b) =>
-        sortKey === 'wait_time' ? a.wait_time - b.wait_time : b.doctors.length - a.doctors.length,
-      )
+    : [...clinics].sort((a, b) => a.wait_time - b.wait_time)
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -450,28 +467,6 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
                   </p>
                 ) : null}
               </div>
-              {!matchMap && (
-                <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-                  <button
-                    type="button"
-                    onClick={() => setSortKey('wait_time')}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      sortKey === 'wait_time' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    Wait time
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSortKey('doctors')}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      sortKey === 'doctors' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    # Doctors
-                  </button>
-                </div>
-              )}
             </div>
             <div className="mb-3 flex items-center gap-3 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
@@ -519,7 +514,7 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
         </div>
 
         <div className="lg:sticky lg:top-[73px]" style={{ height: 'calc(100vh - 100px)' }}>
-          <LeafletMap highlighted={hoveredId} />
+          <LeafletMap highlighted={hoveredId} clinics={clinics} />
         </div>
       </div>
     </div>
