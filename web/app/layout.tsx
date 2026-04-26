@@ -21,7 +21,7 @@ export default function RootLayout({
           <div className="flex min-h-0 flex-1 flex-col pb-12">{children}</div>
           <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white py-2.5 text-center text-xs text-slate-600">
           <span className="font-semibold text-slate-800">Medical emergency?</span>{' '}
-            <a href="tel:911" className="font-semibold text-red-700 underline-offset-2 hover:underline">
+            <a href="tel:911" className="font-semibold text-red-700 underline-offset-2 underline">
               Call 911
             </a>
             . UrgentLA is not for life-threatening emergencies.
