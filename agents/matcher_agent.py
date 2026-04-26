@@ -17,7 +17,6 @@ agent = Agent(
     name="urgentmatch-matcher",
     seed=MATCHER_SEED,
     port=8001,
-    endpoint=["http://localhost:8001/submit"],
     mailbox=True,
 )
 
