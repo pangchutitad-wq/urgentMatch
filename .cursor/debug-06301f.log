@@ -1,0 +1,17 @@
+{"sessionId":"06301f","location":"LeafletMap.tsx:startTracking","message":"startTracking called","data":{"hasGeo":true},"hypothesisId":"H-A","timestamp":1777198259200}
+{"sessionId":"06301f","location":"LeafletMap.tsx:startTracking","message":"startTracking called","data":{"hasGeo":true},"hypothesisId":"H-A","timestamp":1777198259200}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198259203}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198259203}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198259203}
+{"sessionId":"06301f","location":"LeafletMap.tsx:startTracking","message":"startTracking called","data":{"hasGeo":true},"hypothesisId":"H-A","timestamp":1777198267953}
+{"sessionId":"06301f","location":"LeafletMap.tsx:startTracking","message":"startTracking called","data":{"hasGeo":true},"hypothesisId":"H-A","timestamp":1777198267953}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198267957}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198267957}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198267957}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":3,"msg":"Timeout expired"},"hypothesisId":"H-B","timestamp":1777198282954}
+{"sessionId":"06301f","location":"LeafletMap.tsx:startTracking","message":"startTracking called","data":{"hasGeo":true},"hypothesisId":"H-A","timestamp":1777198285698}
+{"sessionId":"06301f","location":"LeafletMap.tsx:startTracking","message":"startTracking called","data":{"hasGeo":true},"hypothesisId":"H-A","timestamp":1777198285698}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198285705}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198285704}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":2,"msg":"Position update is unavailable"},"hypothesisId":"H-B","timestamp":1777198285705}
+{"sessionId":"06301f","location":"LeafletMap.tsx:handleError","message":"geolocation ERROR","data":{"code":3,"msg":"Timeout expired"},"hypothesisId":"H-B","timestamp":1777198300699}

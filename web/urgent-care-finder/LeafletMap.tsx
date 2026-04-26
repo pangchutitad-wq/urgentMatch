@@ -123,15 +123,12 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
       if (err.code === err.PERMISSION_DENIED) {
         setLocStatus('denied')
       } else {
-        // POSITION_UNAVAILABLE (2) or TIMEOUT (3)
-        // Often means macOS Location Services is off for this browser.
         setLocStatus('unavailable')
       }
     }
 
     const opts: PositionOptions = { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
 
-    // One-shot for a fast first fix, then keep watching for real-time updates.
     navigator.geolocation.getCurrentPosition(handleSuccess, handleError, opts)
     watchIdRef.current = navigator.geolocation.watchPosition(handleSuccess, handleError, opts)
   }

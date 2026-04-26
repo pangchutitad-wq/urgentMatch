@@ -13,8 +13,6 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
 })
 
 interface Props {
-  query: string
-  onSearch: (q: string) => void
   /** Optional `?prefill=` from the home URL. */
   chatPrefill?: string
 }
@@ -306,10 +304,9 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, ope
   )
 }
 
-export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
+export default function ResultsView({ chatPrefill }: Props) {
   const router = useRouter()
   const [hoveredId, setHoveredId] = useState<number | null>(null)
-  const [draft, setDraft] = useState(query)
   const [matchMap, setMatchMap] = useState<MatchMap | null>(null)
   const [clinics, setClinics] = useState<Clinic[]>([])
   const [openNowOnly, setOpenNowOnly] = useState(false)
@@ -334,19 +331,10 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
       })
   }, [])
 
-  useEffect(() => {
-    setDraft(query)
-  }, [query])
-
   const filtered = openNowOnly ? clinics.filter((c) => c.openNow) : clinics
   const sorted = matchMap
     ? [...filtered].sort((a, b) => (matchMap[b.id]?.match_score ?? 0) - (matchMap[a.id]?.match_score ?? 0))
     : [...filtered].sort((a, b) => a.wait_time - b.wait_time)
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSearch(draft)
-  }
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -365,49 +353,6 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
             <span className="hidden text-base font-bold text-slate-900 sm:inline">UrgentLA</span>
           </div>
 
-          <form onSubmit={handleSearchSubmit} className="flex max-w-lg flex-1 items-center gap-2">
-            <div className="flex flex-1 items-center gap-2 rounded-xl bg-slate-100 px-3.5 py-2">
-              <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Filter by symptom…"
-                className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 placeholder-slate-400 focus:outline-none"
-              />
-              {draft && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraft('')
-                    onSearch('')
-                  }}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <button
-              type="submit"
-              className="flex-shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >
-              Search
-            </button>
-          </form>
-
-          <div className="hidden flex-shrink-0 items-center gap-2 sm:flex">
-            <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-            <span className="text-xs text-slate-500">Live data</span>
-          </div>
         </div>
       </header>
 
@@ -442,10 +387,6 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
                       />
                     </svg>
                     Sorted by AI match score
-                  </p>
-                ) : query ? (
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Results for &ldquo;<span className="font-medium text-blue-600">{query}</span>&rdquo;
                   </p>
                 ) : null}
               </div>
