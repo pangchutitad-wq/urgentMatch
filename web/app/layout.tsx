@@ -18,9 +18,9 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className={`${inter.className} min-h-full flex flex-col bg-slate-50 text-slate-900`}>
         <div className="flex min-h-full flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-          <footer className="shrink-0 border-t border-slate-200 bg-white py-2.5 text-center text-xs text-slate-600">
-            <span className="font-semibold text-slate-800">Medical emergency?</span>{' '}
+          <div className="flex min-h-0 flex-1 flex-col pb-12">{children}</div>
+          <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white py-2.5 text-center text-xs text-slate-600">
+          <span className="font-semibold text-slate-800">Medical emergency?</span>{' '}
             <a href="tel:911" className="font-semibold text-red-700 underline-offset-2 hover:underline">
               Call 911
             </a>

@@ -126,8 +126,9 @@ export default function ClinicCard({ clinic, rank, matchResult }: Props) {
 
       <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3">
         <div className="flex items-center gap-3 text-xs text-slate-500">
-          <span className="flex items-center gap-1">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           
+          <a href="tel:+16232932226" className="flex items-center gap-1">
+            <svg className="h-3.5 w-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -136,7 +137,7 @@ export default function ClinicCard({ clinic, rank, matchResult }: Props) {
               />
             </svg>
             {clinic.phone}
-          </span>
+          </a>
           <span className="flex items-center gap-1">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
