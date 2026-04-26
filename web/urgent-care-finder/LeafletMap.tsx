@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -101,88 +101,160 @@ function FlyTo({ highlighted, clinics }: { highlighted: number | null; clinics: 
   return null
 }
 
-// TO:
+/** Flies to the user's position exactly once, the first time a GPS fix arrives. */
+function FlyToUser({ userPos }: { userPos: [number, number] | null }) {
+  const map = useMap()
+  const hasFlewRef = useRef(false)
+
+  useEffect(() => {
+    if (!userPos || hasFlewRef.current) return
+    hasFlewRef.current = true
+    map.flyTo(userPos, 14, { duration: 1.2, easeLinearity: 0.4 })
+  }, [userPos, map])
+
+  return null
+}
+
 interface Props {
   highlighted: number | null
   clinics: Clinic[]
 }
+
 export default function LeafletMap({ highlighted, clinics }: Props) {
   const [userPos, setUserPos] = useState<[number, number] | null>(null)
+  const [locationDenied, setLocationDenied] = useState(false)
+  const watchIdRef = useRef<number | null>(null)
+
+  const startTracking = () => {
+    if (!navigator.geolocation) {
+      setLocationDenied(true)
+      return
+    }
+    setLocationDenied(false)
+
+    const onSuccess = (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude
+      const lng = pos.coords.longitude
+      if (isValidCoord(lat, lng)) setUserPos([lat, lng])
+    }
+
+    const onError = (err: GeolocationPositionError) => {
+      if (err.code === err.PERMISSION_DENIED) {
+        // Only show the banner when the user explicitly blocked location.
+        setLocationDenied(true)
+        return
+      }
+      // TIMEOUT or POSITION_UNAVAILABLE — retry without high-accuracy GPS.
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+      }
+      watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, () => {}, {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 10000,
+      })
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 5000,
+    })
+  }
 
   useEffect(() => {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude
-        const lng = pos.coords.longitude
-        if (isValidCoord(lat, lng)) setUserPos([lat, lng])
-      },
-      () => {},
-      { timeout: 8000 },
-    )
+    startTracking()
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current)
+    }
   }, [])
 
   return (
-    <MapContainer
-      center={[34.02, -118.35]}
-      zoom={11}
-      scrollWheelZoom
-      className="h-full w-full"
-      style={{ background: '#e8e0d8' }}
-    >
-      <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        maxZoom={19}
-      />
-
-      <FlyTo highlighted={highlighted} clinics={clinics} />
-
-      {userPos && isValidCoord(userPos[0], userPos[1]) && (
-        <Fragment>
-          <Circle
-            center={userPos}
-            radius={400}
-            pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1.5 }}
-          />
-          <Marker position={userPos} icon={userIcon}>
-            <Popup>
-              <div style={{ fontWeight: 700 }}>You are here</div>
-            </Popup>
-          </Marker>
-        </Fragment>
+    <div className="relative h-full w-full">
+      {locationDenied && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-[1000] flex justify-center">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-sm">
+            <svg className="h-4 w-4 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="text-xs text-slate-600">
+              Location blocked.{' '}
+              <button
+                type="button"
+                onClick={startTracking}
+                className="font-semibold text-blue-600 underline-offset-2 hover:underline"
+              >
+                Try again
+              </button>{' '}
+              or enable in browser settings.
+            </span>
+          </div>
+        </div>
       )}
 
-      {clinics.filter((c) => isValidCoord(c.lat, c.lng)).map((c) => {
-        const color = waitColor(c.wait_time)
-        const isHL = highlighted === c.id
+      <MapContainer
+        center={LA_FALLBACK}
+        zoom={11}
+        scrollWheelZoom
+        className="h-full w-full"
+        style={{ background: '#e8e0d8' }}
+      >
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          maxZoom={19}
+        />
 
-        return (
-          <Fragment key={c.id}>
+        <FlyTo highlighted={highlighted} clinics={clinics} />
+        <FlyToUser userPos={userPos} />
+
+        {userPos && isValidCoord(userPos[0], userPos[1]) && (
+          <Fragment>
             <Circle
-              center={[c.lat, c.lng]}
-              radius={isHL ? 900 : 600}
-              pathOptions={{
-                color,
-                fillColor: color,
-                fillOpacity: isHL ? 0.38 : 0.22,
-                weight: 0,
-              }}
+              center={userPos}
+              radius={400}
+              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1.5 }}
             />
-
-            <Marker position={[c.lat, c.lng]} icon={makeIcon(c, isHL)}>
+            <Marker position={userPos} icon={userIcon}>
               <Popup>
-                <div style={{ minWidth: 180 }}>
-                  <p style={{ fontWeight: 700, marginBottom: 2 }}>{c.name}</p>
-                  <p style={{ color: '#64748b', fontSize: 12, marginBottom: 6 }}>{c.address}</p>
-                  <p style={{ fontWeight: 600, color, fontSize: 13 }}>{c.wait_time} min wait</p>
-                  <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{c.hours}</p>
-                </div>
+                <div style={{ fontWeight: 700 }}>You are here</div>
               </Popup>
             </Marker>
           </Fragment>
-        )
-      })}
-    </MapContainer>
+        )}
+
+        {clinics.filter((c) => isValidCoord(c.lat, c.lng)).map((c) => {
+          const color = waitColor(c.wait_time)
+          const isHL = highlighted === c.id
+
+          return (
+            <Fragment key={c.id}>
+              <Circle
+                center={[c.lat, c.lng]}
+                radius={isHL ? 900 : 600}
+                pathOptions={{
+                  color,
+                  fillColor: color,
+                  fillOpacity: isHL ? 0.38 : 0.22,
+                  weight: 0,
+                }}
+              />
+
+              <Marker position={[c.lat, c.lng]} icon={makeIcon(c, isHL)}>
+                <Popup>
+                  <div style={{ minWidth: 180 }}>
+                    <p style={{ fontWeight: 700, marginBottom: 2 }}>{c.name}</p>
+                    <p style={{ color: '#64748b', fontSize: 12, marginBottom: 6 }}>{c.address}</p>
+                    <p style={{ fontWeight: 600, color, fontSize: 13 }}>{c.wait_time} min wait</p>
+                    <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{c.hours}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            </Fragment>
+          )
+        })}
+      </MapContainer>
+    </div>
   )
 }

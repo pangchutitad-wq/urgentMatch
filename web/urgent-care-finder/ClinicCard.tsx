@@ -75,16 +75,16 @@ export default function ClinicCard({ clinic, rank, matchResult }: Props) {
           </div>
         </div>
 
-        <WaitBadge minutes={clinic.wait_time} />
+        {clinic.openNow !== false && <WaitBadge minutes={clinic.wait_time} />}
       </div>
 
       {matchResult && <MatchScoreBar score={matchResult.match_score} />}
 
-      {matchResult && (
+      {clinic.hours && (
         <div className="mx-5 mb-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
           <p className="text-xs leading-relaxed text-blue-700">
-            <span className="font-semibold">Why this clinic: </span>
-            {matchResult.match_reason}
+            <span className="font-semibold">Hours: </span>
+            {clinic.hours}
           </p>
         </div>
       )}

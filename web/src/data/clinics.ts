@@ -22,6 +22,7 @@ export interface Clinic {
   doctors: Doctor[]
   phone: string
   hours: string
+  openNow?: boolean
 }
 
 export const clinics: Clinic[] = [

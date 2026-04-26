@@ -1,5 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { clinics, MatchResult } from '@/data/clinics'
 import type { Clinic } from '@/data/clinics'
@@ -33,10 +34,12 @@ interface ChatBoxProps {
   onMatchClear: () => void
   onClinicUpdate: (clinics: Clinic[]) => void
   onEmergency: () => void
+  openNowOnly: boolean
+  onOpenNowToggle: () => void
   chatPrefill?: string
 }
 
-function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, chatPrefill }: ChatBoxProps) {
+function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, openNowOnly, onOpenNowToggle, chatPrefill }: ChatBoxProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'bot',
@@ -48,7 +51,7 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
   const [userLoc, setUserLoc] = useState(LA_DEFAULT)
   const [locLabel, setLocLabel] = useState('Central LA')
 
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (chatPrefill) setInput(chatPrefill)
@@ -67,7 +70,8 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
   }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [messages, thinking])
 
   const send = async (text?: string) => {
@@ -111,10 +115,15 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
           lat: Number(c.lat ?? 0),
           lng: Number(c.lon ?? 0),
           wait_time: Number(c.etaMinutes ?? 20),
-          specializations: [String(c.specialty ?? 'general')],
+          specializations: Array.isArray(c.specialties) && c.specialties.length > 0
+            ? (c.specialties as string[])
+            : [String(c.specialty ?? 'general')],
           doctors: [],
           phone: '',
-          hours: c.openNow ? 'Open now' : 'Closed',
+          openNow: Boolean(c.openNow),
+          hours: c.hoursText
+            ? `${c.openNow ? 'Open' : 'Closed'} · ${String(c.hoursText)}`
+            : (c.openNow ? 'Open now' : 'Closed'),
         }))
         const map: MatchMap = {}
         agentClinics.forEach((c, i) => {
@@ -170,7 +179,7 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
     return text.split(/\*\*(.*?)\*\*/g).map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : p))
   }
 
-  const chips = ['Shortest time to doctor', 'Fracture care', 'Open 24h', 'Pediatrics']
+  const chatChips = ['Shortest time to doctor', 'Fracture care', 'Pediatrics']
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -194,7 +203,7 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-3">
+      <div ref={messagesContainerRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-3">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {m.role === 'bot' && (
@@ -245,11 +254,10 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
           </div>
         )}
 
-        <div ref={bottomRef} />
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 bg-white px-3 py-2">
-        {chips.map((s) => (
+        {chatChips.map((s) => (
           <button
             key={s}
             type="button"
@@ -260,6 +268,17 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
             {s}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={onOpenNowToggle}
+          className={`flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            openNowOnly
+              ? 'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600'
+              : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
+          }`}
+        >
+          Open now
+        </button>
       </div>
 
       <div className="flex gap-2 border-t border-slate-100 bg-white px-3 py-3">
@@ -287,11 +306,12 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, cha
 }
 
 export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
-  const [emergency, setEmergency] = useState(false)
+  const router = useRouter()
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [draft, setDraft] = useState(query)
   const [matchMap, setMatchMap] = useState<MatchMap | null>(null)
   const [clinics, setClinics] = useState<Clinic[]>([])
+  const [openNowOnly, setOpenNowOnly] = useState(false)
   useEffect(() => {
     fetch("/api/clinics")
       .then((r) => r.json())
@@ -306,6 +326,7 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
           specializations: [],
           doctors: [],
           phone: "",
+          openNow: Boolean(c.openNow),
           hours: c.openNow ? "Open now" : "Closed",
         }))
         setClinics(mapped)
@@ -316,33 +337,14 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
     setDraft(query)
   }, [query])
 
+  const filtered = openNowOnly ? clinics.filter((c) => c.openNow) : clinics
   const sorted = matchMap
-    ? [...clinics].sort((a, b) => (matchMap[b.id]?.match_score ?? 0) - (matchMap[a.id]?.match_score ?? 0))
-    : [...clinics].sort((a, b) => a.wait_time - b.wait_time)
+    ? [...filtered].sort((a, b) => (matchMap[b.id]?.match_score ?? 0) - (matchMap[a.id]?.match_score ?? 0))
+    : [...filtered].sort((a, b) => a.wait_time - b.wait_time)
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSearch(draft)
-  }
-
-  if (emergency) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-red-700 to-red-900 p-8 text-white">
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 text-4xl backdrop-blur-sm">
-          911
-        </div>
-        <h1 className="mb-3 text-center text-3xl font-bold tracking-tight">Call 911 now</h1>
-        <p className="mb-10 max-w-md text-center text-lg leading-relaxed text-red-100">
-          This may be a medical emergency. Do not drive yourself—get emergency help.
-        </p>
-        <a
-          href="tel:911"
-          className="rounded-full bg-white px-12 py-4 text-lg font-bold text-red-700 shadow-xl transition hover:bg-red-50"
-        >
-          Call 911
-        </a>
-      </div>
-    )
   }
 
   return (
@@ -411,7 +413,9 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
               onMatchUpdate={(map) => setMatchMap(map)}
               onMatchClear={() => setMatchMap(null)}
               onClinicUpdate={(c) => setClinics(c)}
-              onEmergency={() => setEmergency(true)}
+              onEmergency={() => router.push('/emergency')}
+              openNowOnly={openNowOnly}
+              onOpenNowToggle={() => setOpenNowOnly((prev) => !prev)}
               chatPrefill={chatPrefill}
             />
           </div>
@@ -419,7 +423,9 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
           <div>
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-900">{sorted.length} clinics found</h2>
+                <h2 className="text-base font-bold text-slate-900">
+                  {sorted.length} {openNowOnly ? 'open ' : ''}clinic{sorted.length !== 1 ? 's' : ''} found
+                </h2>
                 {matchMap ? (
                   <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-blue-600">
                     <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

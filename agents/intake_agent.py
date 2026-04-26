@@ -29,22 +29,11 @@ from lib.models import Clinic, MatchRequest, MatchResponse
 from lib.matcher import rank_clinics
 from lib.places import fetch_nearby_urgent_care
 from lib.wait_time import estimate_wait
+from lib.specialty import infer_clinic_specialties
 
 
 def _infer_specialties(name: str) -> list[str]:
-    n = name.lower()
-    specialties = ["general"]
-    if any(k in n for k in ("ortho", "bone", "joint", "spine")):
-        specialties.append("orthopedic")
-    if any(k in n for k in ("respir", "pulmon", "lung")):
-        specialties.append("respiratory")
-    if any(k in n for k in ("gastro", "digest")):
-        specialties.append("gastrointestinal")
-    if any(k in n for k in ("dermat", "skin")):
-        specialties.append("dermatology")
-    if any(k in n for k in ("pediatr", "child", "kid")):
-        specialties.append("pediatric")
-    return specialties
+    return infer_clinic_specialties(name)
 
 
 class ChatRESTRequest(Model):
@@ -363,6 +352,7 @@ async def handle_rest_chat(ctx: Context, req: ChatRESTRequest) -> ChatRESTRespon
                 "matchPercent": int(score * 100),
                 "etaMinutes": estimate_wait(clinic.busyness_score, doctor_count) or random.randint(10, 70),
                 "specialty": display_specialty,
+                "specialties": clinic.specialties,
                 "currentPatients": clinic.current_patients,
                 "capacity": clinic.capacity,
                 "doctorsOnDuty": doctor_count,

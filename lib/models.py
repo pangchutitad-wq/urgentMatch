@@ -16,6 +16,8 @@ class MatchRequest(Model):
 class ClinicResult(Model):
     name: str
     address: str
+    lat: float
+    lon: float
     matchPercent: int
     etaMinutes: int
     specialty: str
