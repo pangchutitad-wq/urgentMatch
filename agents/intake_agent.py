@@ -133,9 +133,12 @@ async def _geocode(location_str: str) -> tuple[float, float]:
 def _format_clinic_list(clinics: list) -> str:
     lines = ["Here are the best urgent care options nearby:\n"]
     for i, c in enumerate(clinics, 1):
+        hours_line = f"\n   🕐 Today's hours: {c.hoursText}" if c.hoursText else ""
+        open_status = "Open now" if c.openNow else "Closed"
         lines.append(
             f"{i}. **{c.name}** — {c.matchPercent}% match\n"
             f"   {c.address}\n"
+            f"   {open_status}{hours_line}\n"
             f"   ⏱️ Estimated wait: ~{c.etaMinutes} min\n"
             f"   👥 Patient load: {c.currentPatients}/{c.capacity}\n"
             f"   👨‍⚕️ Doctors on duty: {c.doctorsOnDuty}"
