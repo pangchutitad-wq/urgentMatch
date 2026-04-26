@@ -131,9 +131,7 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, ope
           doctors: [],
           phone: '',
           openNow: Boolean(c.openNow),
-          hours: c.hoursText
-            ? `${c.openNow ? 'Open' : 'Closed'} · ${String(c.hoursText)}`
-            : (c.openNow ? 'Open now' : 'Closed'),
+          hours: c.hoursText ? String(c.hoursText) : undefined,
         }))
         const map: MatchMap = {}
         agentClinics.forEach((c, i) => {
@@ -336,16 +334,17 @@ export default function ResultsView({ chatPrefill }: Props) {
           doctors: [],
           phone: "",
           openNow: Boolean(c.openNow),
-          hours: c.openNow ? "Open now" : "Closed",
+          hours: c.hoursText ?? undefined,
         }))
         setClinics(mapped)
       })
   }, [])
 
   const filtered = openNowOnly ? clinics.filter((c) => c.openNow) : clinics
-  const sorted = matchMap
+  const sortedAll = matchMap
     ? [...filtered].sort((a, b) => (matchMap[b.id]?.match_score ?? 0) - (matchMap[a.id]?.match_score ?? 0))
     : [...filtered].sort((a, b) => a.wait_time - b.wait_time)
+  const sorted = matchMap ? sortedAll.slice(0, 5) : sortedAll.slice(0, 10)
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -385,7 +384,9 @@ export default function ResultsView({ chatPrefill }: Props) {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-bold text-slate-900">
-                  {sorted.length} {openNowOnly ? 'open ' : ''}clinic{sorted.length !== 1 ? 's' : ''} found
+                  {matchMap
+                    ? `Top ${sorted.length} matched clinic${sorted.length !== 1 ? 's' : ''}`
+                    : `${sorted.length} nearby clinic${sorted.length !== 1 ? 's' : ''}${openNowOnly ? ' open now' : ''}`}
                 </h2>
                 {matchMap ? (
                   <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-blue-600">

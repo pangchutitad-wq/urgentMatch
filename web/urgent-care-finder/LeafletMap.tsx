@@ -199,7 +199,17 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
               {locStatus === 'denied' ? (
                 <>Location blocked. <button type="button" onClick={startTracking} className="font-semibold text-blue-600 underline-offset-2 hover:underline">Try again</button> or enable in browser settings.</>
               ) : (
-                <>Location unavailable. On Mac: <strong>System Settings → Privacy → Location Services</strong> → enable for your browser.</>
+                <>
+                  Can&apos;t detect location.{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setUserPos([34.0689, -118.4452]); setLocStatus('active') }}
+                    className="font-semibold text-blue-600 underline-offset-2 hover:underline"
+                  >
+                    Use UCLA location
+                  </button>
+                  {' '}for demo.
+                </>
               )}
             </span>
           </div>

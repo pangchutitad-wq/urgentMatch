@@ -21,7 +21,7 @@ export interface Clinic {
   specializations: string[]
   doctors: Doctor[]
   phone: string
-  hours: string
+  hours?: string
   openNow?: boolean
 }
 

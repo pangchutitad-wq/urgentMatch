@@ -80,14 +80,27 @@ export default function ClinicCard({ clinic, rank, matchResult }: Props) {
 
       {matchResult && <MatchScoreBar score={matchResult.match_score} />}
 
-      {clinic.hours && (
-        <div className="mx-5 mb-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
-          <p className="text-xs leading-relaxed text-blue-700">
-            <span className="font-semibold">Hours: </span>
+      <div className="mx-5 mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
+        {clinic.hours ? (
+          <p className="text-xs leading-relaxed text-slate-600">
+            <span className="font-semibold text-slate-700">Hours today: </span>
             {clinic.hours}
           </p>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs leading-relaxed text-slate-400 italic">Hours unavailable</p>
+        )}
+        {clinic.openNow === false ? (
+          <span className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            Closed
+          </span>
+        ) : (
+          <span className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Open now
+          </span>
+        )}
+      </div>
 
       <div className="px-5 pb-3">
         <div className="flex flex-wrap gap-1.5">
@@ -102,8 +115,7 @@ export default function ClinicCard({ clinic, rank, matchResult }: Props) {
         </div>
       </div>
 
-      <div className="px-5 pb-3">
-        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">On-site physicians</p>
+      <div className="px-5">
         <div className="flex flex-col gap-1">
           {clinic.doctors.map((doc) => (
             <div key={doc.name} className="flex items-center gap-2">
@@ -138,7 +150,7 @@ export default function ClinicCard({ clinic, rank, matchResult }: Props) {
             </svg>
             {clinic.phone}
           </a>
-          <span className="flex items-center gap-1">
+          <span className={`flex items-center gap-1 font-medium ${clinic.openNow === false ? 'text-red-500' : 'text-emerald-600'}`}>
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -147,7 +159,7 @@ export default function ClinicCard({ clinic, rank, matchResult }: Props) {
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            {clinic.hours}
+            {clinic.openNow === false ? 'Closed' : 'Open now'}
           </span>
         </div>
         <a

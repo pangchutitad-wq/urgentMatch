@@ -137,7 +137,7 @@ function ResultsContent() {
         <a href="/chat" className="text-gray-400 hover:text-gray-600 text-lg">←</a>
         <span className="text-2xl">🏥</span>
         <div className="flex-1">
-          <p className="font-semibold text-gray-900 text-sm">UrgentMatch</p>
+          <p className="font-semibold text-gray-900 text-sm">UrgentLA</p>
           <p className="text-xs text-gray-400">Top clinics for you</p>
         </div>
       </div>

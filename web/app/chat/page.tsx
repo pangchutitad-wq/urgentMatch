@@ -166,14 +166,14 @@ export default function ChatPage() {
       <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
         <Image
           src="/logo.PNG"
-          alt="UrgentMatch logo"
+          alt="UrgentLA logo"
           width={40}
           height={40}
           className="h-10 w-10 object-contain"
           priority
         />
         <div className="flex-1">
-          <p className="font-semibold text-gray-900 text-sm">UrgentMatch</p>
+          <p className="font-semibold text-gray-900 text-sm">UrgentLA</p>
           <p className="text-xs text-gray-400">Finding the right care for you</p>
         </div>
         {locationStatus === 'pending' && (
