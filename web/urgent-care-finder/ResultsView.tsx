@@ -24,45 +24,7 @@ interface Message {
 
 type MatchMap = Record<number, MatchResult>
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
 
-function driveMin(lat1: number, lng1: number, lat2: number, lng2: number) {
-  return Math.round((haversineKm(lat1, lng1, lat2, lng2) / 28) * 60)
-}
-
-function getLocalReply(input: string, userLat: number, userLng: number): string | null {
-  const q = input.toLowerCase()
-  if (q.match(/shortest time|time to see|total time|quickest/)) {
-    const ranked = clinics
-      .map((c) => {
-        const t = driveMin(userLat, userLng, c.lat, c.lng)
-        return { c, t, total: c.wait_time + t }
-      })
-      .sort((a, b) => a.total - b.total)
-    const best = ranked[0]
-    const lines = ranked
-      .map(({ c, t, total }) => `• **${c.name}**: ${t}m drive + ${c.wait_time}m wait = **${total}m total**`)
-      .join('\n')
-    return `Total time to see a doctor (drive + wait):\n\n${lines}\n\nFastest: **${best.c.name}** at **${best.total} min**.`
-  }
-  if (q.match(/open|24|hours|night/)) {
-    const c = clinics.find((cl) => cl.hours.includes('24'))
-    if (!c) return 'No 24-hour clinics found.'
-    return `**${c.name}** is open 24 hours. ~${driveMin(userLat, userLng, c.lat, c.lng)}m drive. Address: ${c.address}.`
-  }
-  if (q.match(/hello|hi|hey|^help$/)) {
-    return "Hi! Describe your symptoms and I'll rank clinics by match, or tap **Shortest time to doctor** for a drive+wait breakdown."
-  }
-  return null
-}
 
 const LA_DEFAULT = { lat: 34.0607, lng: -118.3 }
 
@@ -114,13 +76,6 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
     const userTurn: Message = { role: 'user', text: trimmed }
     setMessages((prev) => [...prev, userTurn])
 
-    const local = getLocalReply(trimmed, userLoc.lat, userLoc.lng)
-    if (local) {
-      onMatchClear()
-      setMessages((prev) => [...prev, { role: 'bot', text: local }])
-      return
-    }
-
     setThinking(true)
     try {
       const historyForApi = [...messages, userTurn].map((m) => ({
@@ -142,6 +97,7 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
       }
 
       if (data.type === 'routing') {
+        const specialty = String(data.specialty ?? 'general')
         const redFlag = Boolean(data.redFlag)
         if (redFlag) {
           onEmergency()
@@ -172,7 +128,6 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
           }
         })
         onMatchUpdate(map)
-        const specialty = String(data.specialty ?? 'general')
         setMessages((prev) => [
           ...prev,
           {
@@ -192,24 +147,6 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
       }
 
       setMessages((prev) => [...prev, { role: 'bot', text: replyText }])
-
-      const matchRes = await fetch('/api/match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symptoms: trimmed }),
-      })
-      const matchData = (await matchRes.json()) as {
-        clinics: Array<{ id: number } & MatchResult>
-      }
-      const map: MatchMap = {}
-      matchData.clinics.forEach((c) => {
-        map[c.id] = {
-          match_score: c.match_score,
-          urgency_level: c.urgency_level,
-          match_reason: c.match_reason,
-        }
-      })
-      onMatchUpdate(map)
     } catch {
       setMessages((prev) => [
         ...prev,
