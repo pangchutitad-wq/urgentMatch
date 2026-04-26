@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 import sys
 from datetime import datetime
 
@@ -80,8 +81,8 @@ def _today_hours(hours_info: dict) -> str:
     return ""
 
 
-def _parse_place(place: dict) -> dict | None:
-    loc = place.get("location", {})
+def _parse_place(place: dict) -> Optional[dict]:
+    loc = place.get("geometry", {}).get("location", {})
     if not loc:
         return None
 

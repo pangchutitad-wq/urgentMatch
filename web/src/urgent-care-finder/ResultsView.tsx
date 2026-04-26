@@ -141,14 +141,46 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
       }
 
       if (data.type === 'routing') {
-        const specialty = String(data.specialty ?? 'general')
-        const urgency = Number(data.urgency ?? 5)
         const redFlag = Boolean(data.redFlag)
         if (redFlag) {
           onEmergency()
           return
         }
-        window.location.href = `/results?specialty=${encodeURIComponent(specialty)}&urgency=${urgency}`
+        const matchRes = await fetch('/api/match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symptoms: trimmed }),
+        })
+        if (!matchRes.ok) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'bot', text: "Couldn't load match scores. Please try again." },
+          ])
+          return
+        }
+        const matchData = (await matchRes.json()) as {
+          clinics: Array<{ id: number } & MatchResult>
+          bot_message?: string
+        }
+        const map: MatchMap = {}
+        matchData.clinics?.forEach((c) => {
+          map[c.id] = {
+            match_score: c.match_score,
+            urgency_level: c.urgency_level,
+            match_reason: c.match_reason,
+          }
+        })
+        onMatchUpdate(map)
+        const specialty = String(data.specialty ?? 'general')
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'bot',
+            text:
+              matchData.bot_message ??
+              `Routed to ${specialty} care. Clinics are sorted by match score.`,
+          },
+        ])
         return
       }
 
@@ -492,7 +524,7 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
         </div>
 
         <div className="lg:sticky lg:top-[73px]" style={{ height: 'calc(100vh - 100px)' }}>
-          <LeafletMap highlighted={hoveredId} />
+          <LeafletMap highlighted={hoveredId} clinics={clinics} />
         </div>
       </div>
     </div>

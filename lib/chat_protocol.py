@@ -15,6 +15,7 @@ __all__ = [
     "StartSessionContent",
     "ChatMessage",
     "ChatAcknowledgement",
+    "StartSessionContent",
 ]
 
 
@@ -37,3 +38,6 @@ class ChatAcknowledgement(Model):
     timestamp: datetime
     acknowledged_msg_id: UUID
     metadata: Optional[dict] = None
+
+class StartSessionContent(Model):
+    type: str = "start_session"
