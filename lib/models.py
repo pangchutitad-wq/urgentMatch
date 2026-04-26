@@ -47,5 +47,5 @@ class Clinic:
 
 class MatchResponse(Model):
     session_id: str
-    clinics: List[ClinicResult]
+    clinics: list[ClinicResult]
     error: Optional[str] = None

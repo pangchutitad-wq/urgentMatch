@@ -14,14 +14,15 @@ from openai import OpenAI
 from uagents import Agent, Context, Protocol
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from lib.chat_protocol import (
+from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
     ChatMessage,
     StartSessionContent,
     TextContent,
+    chat_protocol_spec,
 )
 
-chat_proto = Protocol(name="AgentChatProtocol", version="0.3.0")
+chat_proto = Protocol(spec=chat_protocol_spec)
 
 from lib.models import MatchRequest, MatchResponse
 
@@ -138,7 +139,7 @@ def _format_clinic_list(clinics: list) -> str:
         hours_line = f"\n   🕐 Today's hours: {c.hoursText}" if c.hoursText else ""
         open_status = "Open now" if c.openNow else "Closed"
         lines.append(
-            f"{i}. **{c.name}** — {c.matchPercent}% match\n"
+            f"{i}. **{c.name}**\n"
             f"   {c.address}\n"
             f"   {open_status}{hours_line}\n"
             f"   ⏱️ Estimated wait: ~{c.etaMinutes} min\n"
