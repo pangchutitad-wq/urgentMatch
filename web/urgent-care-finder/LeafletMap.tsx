@@ -98,11 +98,14 @@ interface Props {
 }
 
 type LocationStatus = 'locating' | 'active' | 'denied' | 'unavailable'
+type GeoPermissionState = 'granted' | 'prompt' | 'denied' | 'unknown'
 
 export default function LeafletMap({ highlighted, clinics }: Props) {
   const [userPos, setUserPos] = useState<[number, number] | null>(null)
   const [locStatus, setLocStatus] = useState<LocationStatus>('locating')
+  const [geoPermission, setGeoPermission] = useState<GeoPermissionState>('unknown')
   const watchIdRef = useRef<number | null>(null)
+  const retryTimerRef = useRef<number | null>(null)
 
   const startTracking = () => {
     if (!navigator.geolocation) {
@@ -121,7 +124,17 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
 
     const handleError = (err: GeolocationPositionError) => {
       if (err.code === err.PERMISSION_DENIED) {
-        setLocStatus('denied')
+        // Distinguish browser-level deny from OS/service-level failures.
+        setLocStatus(geoPermission === 'granted' ? 'unavailable' : 'denied')
+      } else if (err.code === err.TIMEOUT) {
+        // Timeouts are often transient; retry once before declaring unavailable.
+        if (!userPos) {
+          setLocStatus('locating')
+          if (retryTimerRef.current !== null) window.clearTimeout(retryTimerRef.current)
+          retryTimerRef.current = window.setTimeout(() => {
+            navigator.geolocation.getCurrentPosition(handleSuccess, handleError, opts)
+          }, 1200)
+        }
       } else {
         // POSITION_UNAVAILABLE (2) or TIMEOUT (3)
         // Often means macOS Location Services is off for this browser.
@@ -137,12 +150,43 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
   }
 
   useEffect(() => {
+    if (!navigator.permissions?.query) return
+
+    let mounted = true
+    let permissionStatus: PermissionStatus | null = null
+
+    const syncPermission = () => {
+      if (!mounted || !permissionStatus) return
+      const state = permissionStatus.state as GeoPermissionState
+      setGeoPermission(state)
+      if (state === 'denied') setLocStatus('denied')
+    }
+
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((status) => {
+        permissionStatus = status
+        syncPermission()
+        permissionStatus.onchange = syncPermission
+      })
+      .catch(() => {
+        // Some browsers do not fully support permission queries.
+      })
+
+    return () => {
+      mounted = false
+      if (permissionStatus) permissionStatus.onchange = null
+    }
+  }, [])
+
+  useEffect(() => {
     startTracking()
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current)
+      if (retryTimerRef.current !== null) window.clearTimeout(retryTimerRef.current)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [geoPermission])
 
   return (
     <div className="relative h-full w-full">
