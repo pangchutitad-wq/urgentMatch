@@ -222,33 +222,6 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
         <FlyTo highlighted={highlighted} clinics={clinics} />
         <FlyToUser userPos={userPos} />
 
-        {userPos && isValidCoord(userPos[0], userPos[1]) && (
-          <Fragment>
-            {/* accuracy halo */}
-            <Circle
-              center={userPos}
-              radius={400}
-              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.12, weight: 1 }}
-            />
-            {/* outer ring — CircleMarker is pure SVG, no icon/CSS loading needed */}
-            <CircleMarker
-              center={userPos}
-              radius={14}
-              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.25, weight: 0 }}
-            />
-            {/* solid blue dot */}
-            <CircleMarker
-              center={userPos}
-              radius={8}
-              pathOptions={{ color: '#ffffff', fillColor: '#3b82f6', fillOpacity: 1, weight: 2.5 }}
-            >
-              <Popup>
-                <div style={{ fontWeight: 700 }}>You are here</div>
-              </Popup>
-            </CircleMarker>
-          </Fragment>
-        )}
-
         {clinics.filter((c) => isValidCoord(c.lat, c.lng)).map((c) => {
           const color = waitColor(c.wait_time)
           const isHL = highlighted === c.id
@@ -279,6 +252,33 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
             </Fragment>
           )
         })}
+
+        {userPos && isValidCoord(userPos[0], userPos[1]) && (
+          <Fragment>
+            {/* accuracy halo */}
+            <Circle
+              center={userPos}
+              radius={400}
+              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.12, weight: 1 }}
+            />
+            {/* outer ring — CircleMarker is pure SVG, no icon/CSS loading needed */}
+            <CircleMarker
+              center={userPos}
+              radius={14}
+              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.25, weight: 0 }}
+            />
+            {/* solid blue dot */}
+            <CircleMarker
+              center={userPos}
+              radius={8}
+              pathOptions={{ color: '#ffffff', fillColor: '#3b82f6', fillOpacity: 1, weight: 2.5 }}
+            >
+              <Popup>
+                <div style={{ fontWeight: 700 }}>You are here</div>
+              </Popup>
+            </CircleMarker>
+          </Fragment>
+        )}
       </MapContainer>
     </div>
   )
