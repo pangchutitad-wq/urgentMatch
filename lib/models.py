@@ -1,5 +1,4 @@
-from typing import Optional
-from typing import list
+from typing import Optional, List, Tuple
 from dataclasses import dataclass
 from uagents import Model
 
@@ -26,12 +25,12 @@ class Clinic:
     address: str
     lat: float
     lon: float
-    specialties: list[str] #clinic specialties 
+    specialties: List[str] #clinic specialties 
     current_patients: int
     capacity: int
     eta_minutes: int #wait time
 
 class MatchResponse(Model):
     session_id: str
-    clinics: list[ClinicResult]
+    clinics: List[ClinicResult]
     error: Optional[str] = None

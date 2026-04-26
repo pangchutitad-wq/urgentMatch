@@ -1,5 +1,6 @@
 from lib.models import Clinic
 from lib.distance import haversine
+from typing import List, Tuple, Optional
 maxDistance = 15
 
 def score_clinic(clinic: Clinic, specialty: str, user_lat: float, user_lon: float) -> float:
@@ -19,7 +20,7 @@ def score_clinic(clinic: Clinic, specialty: str, user_lat: float, user_lon: floa
     score = specialtyMatch * 0.4 + (1-loadFactor) * 0.3 + (1-normalizedETA) * 0.3
     return score
 
-def rank_clinics(clinics:list[Clinic], specialty: str, user_lat: float, user_lon: float) -> list[tuple[float, Clinic]]:
+def rank_clinics(clinics:List[Clinic], specialty: str, user_lat: float, user_lon: float) -> List[Tuple[float, Clinic]]:
     results = []
     for clinic in clinics:
         score = score_clinic(clinic, specialty, user_lat, user_lon)
