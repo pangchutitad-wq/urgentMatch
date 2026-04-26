@@ -82,7 +82,7 @@ def _today_hours(hours_info: dict) -> str:
 
 
 def _parse_place(place: dict) -> Optional[dict]:
-    loc = place.get("geometry", {}).get("location", {})
+    loc = place.get("location", {})
     if not loc:
         return None
 
