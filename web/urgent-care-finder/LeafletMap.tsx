@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, CircleMarker, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Clinic } from '@/data/clinics'
@@ -45,30 +45,7 @@ function makeIcon(clinic: { wait_time: number }, highlighted: boolean) {
   })
 }
 
-const userIcon = L.divIcon({
-  className: '',
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-  html: `
-    <div style="position:relative;width:20px;height:20px;">
-      <div style="
-        position:absolute;inset:0;border-radius:50%;
-        background:rgba(59,130,246,0.35);
-        animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;
-      "></div>
-      <div style="
-        position:absolute;inset:3px;border-radius:50%;
-        background:#3b82f6;
-        border:2.5px solid #fff;
-        box-shadow:0 1px 6px rgba(0,0,0,0.4);
-      "></div>
-    </div>
-    <style>
-      @keyframes ping {
-        75%,100%{transform:scale(2);opacity:0}
-      }
-    </style>`,
-})
+// No module-scope icon needed — user position uses CircleMarker (pure SVG).
 
 const LA_FALLBACK: [number, number] = [34.02, -118.35]
 
@@ -120,39 +97,42 @@ interface Props {
   clinics: Clinic[]
 }
 
+type LocationStatus = 'locating' | 'active' | 'denied' | 'unavailable'
+
 export default function LeafletMap({ highlighted, clinics }: Props) {
   const [userPos, setUserPos] = useState<[number, number] | null>(null)
-  const [locationDenied, setLocationDenied] = useState(false)
+  const [locStatus, setLocStatus] = useState<LocationStatus>('locating')
   const watchIdRef = useRef<number | null>(null)
 
   const startTracking = () => {
     if (!navigator.geolocation) {
-      setLocationDenied(true)
+      setLocStatus('unavailable')
       return
     }
-    setLocationDenied(false)
+    setLocStatus('locating')
 
     const handleSuccess = (pos: GeolocationPosition) => {
-      const lat = pos.coords.latitude
-      const lng = pos.coords.longitude
-      if (isValidCoord(lat, lng)) setUserPos([lat, lng])
+      const { latitude: lat, longitude: lng } = pos.coords
+      if (isValidCoord(lat, lng)) {
+        setUserPos([lat, lng])
+        setLocStatus('active')
+      }
     }
 
     const handleError = (err: GeolocationPositionError) => {
-      if (err.code === err.PERMISSION_DENIED) setLocationDenied(true)
-      // TIMEOUT / POSITION_UNAVAILABLE: stay silent, watchPosition may still deliver later.
+      if (err.code === err.PERMISSION_DENIED) {
+        setLocStatus('denied')
+      } else {
+        // POSITION_UNAVAILABLE (2) or TIMEOUT (3)
+        // Often means macOS Location Services is off for this browser.
+        setLocStatus('unavailable')
+      }
     }
 
-    const opts: PositionOptions = {
-      enableHighAccuracy: false, // WiFi/IP triangulation — works on all desktops
-      timeout: 30000,
-      maximumAge: 60000,
-    }
+    const opts: PositionOptions = { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
 
-    // Immediate one-shot fix so the dot appears quickly without waiting for the watcher.
+    // One-shot for a fast first fix, then keep watching for real-time updates.
     navigator.geolocation.getCurrentPosition(handleSuccess, handleError, opts)
-
-    // Keep updating position in real time.
     watchIdRef.current = navigator.geolocation.watchPosition(handleSuccess, handleError, opts)
   }
 
@@ -161,27 +141,25 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
     <div className="relative h-full w-full">
-      {locationDenied && (
+      {/* Location error banner — only shown when geolocation fails */}
+      {(locStatus === 'denied' || locStatus === 'unavailable') && (
         <div className="pointer-events-none absolute inset-x-0 bottom-4 z-[1000] flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-sm">
-            <svg className="h-4 w-4 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="pointer-events-auto flex items-center gap-2.5 rounded-2xl border border-amber-100 bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-sm">
+            <svg className="h-4 w-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span className="text-xs text-slate-600">
-              Location blocked.{' '}
-              <button
-                type="button"
-                onClick={startTracking}
-                className="font-semibold text-blue-600 underline-offset-2 hover:underline"
-              >
-                Try again
-              </button>{' '}
-              or enable in browser settings.
+            <span className="text-xs text-slate-700">
+              {locStatus === 'denied' ? (
+                <>Location blocked. <button type="button" onClick={startTracking} className="font-semibold text-blue-600 underline-offset-2 hover:underline">Try again</button> or enable in browser settings.</>
+              ) : (
+                <>Location unavailable. On Mac: <strong>System Settings → Privacy → Location Services</strong> → enable for your browser.</>
+              )}
             </span>
           </div>
         </div>
@@ -205,16 +183,28 @@ export default function LeafletMap({ highlighted, clinics }: Props) {
 
         {userPos && isValidCoord(userPos[0], userPos[1]) && (
           <Fragment>
+            {/* accuracy halo */}
             <Circle
               center={userPos}
               radius={400}
-              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1.5 }}
+              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.12, weight: 1 }}
             />
-            <Marker position={userPos} icon={userIcon}>
+            {/* outer ring — CircleMarker is pure SVG, no icon/CSS loading needed */}
+            <CircleMarker
+              center={userPos}
+              radius={14}
+              pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.25, weight: 0 }}
+            />
+            {/* solid blue dot */}
+            <CircleMarker
+              center={userPos}
+              radius={8}
+              pathOptions={{ color: '#ffffff', fillColor: '#3b82f6', fillOpacity: 1, weight: 2.5 }}
+            >
               <Popup>
                 <div style={{ fontWeight: 700 }}>You are here</div>
               </Popup>
-            </Marker>
+            </CircleMarker>
           </Fragment>
         )}
 

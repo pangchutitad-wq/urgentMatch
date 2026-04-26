@@ -15,13 +15,10 @@ def score_clinic(clinic: Clinic, specialty: str, user_lat: float, user_lon: floa
     # 30% — proximity (closer is better, capped at MAX_DISTANCE)
     proximity_score = 1.0 - min(distance / MAX_DISTANCE, 1.0)
 
-    # 20% — wait time (shorter is better)
+    # 30% — wait time (shorter is better)
     wait_score = 1.0 - min(clinic.eta_minutes / MAX_ETA, 1.0)
 
-    # 10% — open now bonus
-    open_score = 1.0 if clinic.open_now else 0.0
-
-    return specialty_score * 0.35 + proximity_score * 0.3 + wait_score * 0.2 + open_score * 0.15
+    return specialty_score * 0.4 + proximity_score * 0.3 + wait_score * 0.3
 
 def rank_clinics(clinics: list[Clinic], specialty: str, user_lat: float, user_lon: float) -> list[tuple[float, Clinic]]:
     results = [
