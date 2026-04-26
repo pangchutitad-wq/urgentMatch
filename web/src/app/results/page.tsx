@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useMemo } from 'react'
 import { clinics, MatchResult } from '@/data/clinics'
-import ClinicCard from '@/urgent-care-finder/ClinicCard'
+import ClinicCard from '../../../urgent-care-finder/ClinicCard'
 
 const SPECIALTY_LABELS: Record<string, string> = {
   general: 'General',

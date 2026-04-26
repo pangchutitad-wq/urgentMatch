@@ -1,7 +1,5 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import Optional
 
 from uagents import Model
 
@@ -21,20 +19,28 @@ class ClinicResult(Model):
     matchPercent: int
     etaMinutes: int
     specialty: str
+    currentPatients: int
+    capacity: int
+    doctorsOnDuty: int = 0
+    rating: float = 0.0
+    reviewCount: int = 0
+    openNow: bool = True
+    mapsUrl: str = ""
 
-
-# for backend scoring logic
+#for backend scoring logic
 @dataclass
 class Clinic:
-    name: str
+    name: str 
     address: str
     lat: float
     lon: float
-    specialties: List[str]
+    specialties: list[str]
     current_patients: int
     capacity: int
     eta_minutes: int
-
+    rating: float = 0.0
+    open_now: bool = True
+    place_id: str = ""
 
 class MatchResponse(Model):
     session_id: str

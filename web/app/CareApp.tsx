@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import ResultsView from '@/urgent-care-finder/ResultsView'
+import ResultsView from '../urgent-care-finder/ResultsView'
 
 function CareInner() {
   const searchParams = useSearchParams()
