@@ -1,7 +1,7 @@
 'use client'
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
-import { MatchResult } from '@/data/clinics'
+import { clinics, MatchResult } from '@/data/clinics'
 import type { Clinic } from '@/data/clinics'
 import ClinicCard from './ClinicCard'
 
@@ -84,7 +84,6 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
   const [thinking, setThinking] = useState(false)
   const [userLoc, setUserLoc] = useState(LA_DEFAULT)
   const [locLabel, setLocLabel] = useState('Central LA')
-  const [clinics, setClinics] = useState<Clinic[]>([])
 
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -143,14 +142,46 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
       }
 
       if (data.type === 'routing') {
-        const specialty = String(data.specialty ?? 'general')
-        const urgency = Number(data.urgency ?? 5)
         const redFlag = Boolean(data.redFlag)
         if (redFlag) {
           onEmergency()
           return
         }
-        window.location.href = `/results?specialty=${encodeURIComponent(specialty)}&urgency=${urgency}`
+        const matchRes = await fetch('/api/match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symptoms: trimmed }),
+        })
+        if (!matchRes.ok) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'bot', text: "Couldn't load match scores. Please try again." },
+          ])
+          return
+        }
+        const matchData = (await matchRes.json()) as {
+          clinics: Array<{ id: number } & MatchResult>
+          bot_message?: string
+        }
+        const map: MatchMap = {}
+        matchData.clinics?.forEach((c) => {
+          map[c.id] = {
+            match_score: c.match_score,
+            urgency_level: c.urgency_level,
+            match_reason: c.match_reason,
+          }
+        })
+        onMatchUpdate(map)
+        const specialty = String(data.specialty ?? 'general')
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'bot',
+            text:
+              matchData.bot_message ??
+              `Routed to ${specialty} care. Clinics are sorted by match score.`,
+          },
+        ])
         return
       }
 

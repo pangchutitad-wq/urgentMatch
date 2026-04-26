@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 import sys
 
 import httpx
@@ -33,7 +34,7 @@ def _clinic_to_dict(clinic) -> dict:
     }
 
 
-def _parse_place(place: dict) -> dict | None:
+def _parse_place(place: dict) -> Optional[dict]:
     loc = place.get("geometry", {}).get("location", {})
     if not loc:
         return None
