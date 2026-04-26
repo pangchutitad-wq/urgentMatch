@@ -3,7 +3,7 @@ from typing import list
 from dataclasses import dataclass
 from uagents import Model
 
-
+#inheriting from model 
 class MatchRequest(Model):
     session_id: str
     specialty: str
@@ -20,7 +20,8 @@ class ClinicResult(Model):
     specialty: str
 
 #for backend scoring logic
-class Clinic():
+@dataclass
+class Clinic:
     name: str 
     address: str
     lat: float
