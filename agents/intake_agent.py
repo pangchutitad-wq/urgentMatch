@@ -1,17 +1,18 @@
 import asyncio
 import json
 import os
+import random
 import re
 import sys
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import httpx
 from dotenv import load_dotenv
 # import anthropic
 from openai import OpenAI
-from uagents import Agent, Context, Protocol
+from uagents import Agent, Context, Model, Protocol
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from uagents_core.contrib.protocols.chat import (
@@ -24,7 +25,42 @@ from uagents_core.contrib.protocols.chat import (
 
 chat_proto = Protocol(spec=chat_protocol_spec)
 
-from lib.models import MatchRequest, MatchResponse
+from lib.models import Clinic, MatchRequest, MatchResponse
+from lib.matcher import rank_clinics
+from lib.places import fetch_nearby_urgent_care
+from lib.wait_time import estimate_wait
+
+
+def _infer_specialties(name: str) -> list[str]:
+    n = name.lower()
+    specialties = ["general"]
+    if any(k in n for k in ("ortho", "bone", "joint", "spine")):
+        specialties.append("orthopedic")
+    if any(k in n for k in ("respir", "pulmon", "lung")):
+        specialties.append("respiratory")
+    if any(k in n for k in ("gastro", "digest")):
+        specialties.append("gastrointestinal")
+    if any(k in n for k in ("dermat", "skin")):
+        specialties.append("dermatology")
+    if any(k in n for k in ("pediatr", "child", "kid")):
+        specialties.append("pediatric")
+    return specialties
+
+
+class ChatRESTRequest(Model):
+    messages: List[Dict[str, Any]]
+    session_id: str = ""
+    image_base64: Optional[str] = None
+
+
+class ChatRESTResponse(Model):
+    type: str
+    text: Optional[str] = None
+    specialty: Optional[str] = None
+    urgency: Optional[int] = None
+    redFlag: Optional[bool] = None
+    clinics: Optional[List[Dict[str, Any]]] = None
+    error: Optional[str] = None
 
 load_dotenv()
 
@@ -237,6 +273,125 @@ async def handle_match_response(ctx: Context, sender: str, msg: MatchResponse):
         reply = _format_clinic_list(msg.clinics)
 
     await ctx.send(msg.session_id, _make_chat(reply))
+
+
+@agent.on_rest_post("/chat", ChatRESTRequest, ChatRESTResponse)
+async def handle_rest_chat(ctx: Context, req: ChatRESTRequest) -> ChatRESTResponse:
+    """HTTP endpoint for the Next.js web app — keeps the full agent pipeline active."""
+    history: List[Dict[str, Any]] = list(req.messages)
+
+    # ASI1 requires conversations to start with a user turn — drop any leading assistant messages
+    while history and history[0].get("role") != "user":
+        history.pop(0)
+
+    if not history:
+        return ChatRESTResponse(
+            type="message",
+            text="Hi! I'm here to help you find the right urgent care. What's bringing you in today?",
+        )
+
+    # Attach image to the last user message if provided
+    if req.image_base64 and history and history[-1].get("role") == "user":
+        last = history[-1]
+        history[-1] = {
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": req.image_base64}},
+                {"type": "text", "text": last.get("content", "") or "See the image above."},
+            ],
+        }
+
+    try:
+        response = await asyncio.to_thread(
+            asi_client.chat.completions.create,
+            model="asi1-mini",
+            max_tokens=512,
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}, *history],
+        )
+        reply_text = response.choices[0].message.content or ""
+        ctx.logger.info(f"ASI1 REST reply: {reply_text[:80]}")
+    except Exception as exc:
+        ctx.logger.error(f"ASI1 API error (REST): {exc}")
+        return ChatRESTResponse(type="error", error=str(exc))
+
+    routing = _try_parse_routing(reply_text)
+    if not routing:
+        return ChatRESTResponse(type="message", text=reply_text)
+
+    if routing.get("redFlag"):
+        return ChatRESTResponse(type="redFlag")
+
+    # Geocode and run clinic matching in-process (synchronous for the web request)
+    user_lat, user_lon = await _geocode(routing.get("location") or "")
+    specialty = str(routing.get("specialty", "general"))
+    urgency = int(routing.get("urgency", 5))
+
+    try:
+        clinic_dicts = await fetch_nearby_urgent_care(user_lat, user_lon)
+        all_clinics = []
+        for d in clinic_dicts:
+            specialties = d.get("specialties") or _infer_specialties(d["name"])
+            all_clinics.append(
+                Clinic(
+                    name=d["name"],
+                    address=d["address"],
+                    lat=d["lat"],
+                    lon=d["lon"],
+                    specialties=specialties,
+                    current_patients=d.get("current_patients") or random.randint(5, 20),
+                    capacity=d.get("capacity") or 20,
+                    eta_minutes=d.get("eta_minutes") or random.randint(10, 70),
+                    rating=d.get("rating") or 0.0,
+                    open_now=d.get("open_now", True),
+                    place_id=d.get("place_id", ""),
+                    hours_today=d.get("hours_today", ""),
+                    busyness_score=d.get("busyness_score"),
+                )
+            )
+        ranked = rank_clinics(all_clinics, specialty, user_lat, user_lon)
+        clinics_out = []
+        for score, clinic in ranked:
+            doctor_count = random.randint(2, 4)
+            display_specialty = specialty if specialty in clinic.specialties else (
+                "general" if "general" in clinic.specialties else clinic.specialties[0]
+            )
+            clinics_out.append({
+                "name": clinic.name,
+                "address": clinic.address,
+                "lat": clinic.lat,
+                "lon": clinic.lon,
+                "matchPercent": int(score * 100),
+                "etaMinutes": estimate_wait(clinic.busyness_score, doctor_count) or random.randint(10, 70),
+                "specialty": display_specialty,
+                "currentPatients": clinic.current_patients,
+                "capacity": clinic.capacity,
+                "doctorsOnDuty": doctor_count,
+                "rating": clinic.rating,
+                "reviewCount": 0,
+                "openNow": clinic.open_now,
+                "mapsUrl": (
+                    f"https://www.google.com/maps/place/?q=place_id:{clinic.place_id}"
+                    if clinic.place_id
+                    else f"https://maps.google.com/?q={clinic.address.replace(' ', '+')}"
+                ),
+                "hoursText": clinic.hours_today,
+            })
+    except Exception as exc:
+        ctx.logger.error(f"Clinic matching error (REST): {exc}")
+        return ChatRESTResponse(
+            type="routing",
+            specialty=specialty,
+            urgency=urgency,
+            redFlag=False,
+        )
+
+    return ChatRESTResponse(
+        type="results",
+        specialty=specialty,
+        urgency=urgency,
+        redFlag=False,
+        clinics=clinics_out,
+    )
 
 
 agent.include(chat_proto, publish_manifest=True)

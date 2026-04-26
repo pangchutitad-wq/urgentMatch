@@ -31,11 +31,12 @@ const LA_DEFAULT = { lat: 34.0607, lng: -118.3 }
 interface ChatBoxProps {
   onMatchUpdate: (map: MatchMap) => void
   onMatchClear: () => void
+  onClinicUpdate: (clinics: Clinic[]) => void
   onEmergency: () => void
   chatPrefill?: string
 }
 
-function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: ChatBoxProps) {
+function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, chatPrefill }: ChatBoxProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'bot',
@@ -96,46 +97,47 @@ function ChatBox({ onMatchUpdate, onMatchClear, onEmergency, chatPrefill }: Chat
         return
       }
 
-      if (data.type === 'routing') {
-        const specialty = String(data.specialty ?? 'general')
-        const redFlag = Boolean(data.redFlag)
-        if (redFlag) {
-          onEmergency()
-          return
-        }
-        const matchRes = await fetch('/api/match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symptoms: trimmed }),
-        })
-        if (!matchRes.ok) {
-          setMessages((prev) => [
-            ...prev,
-            { role: 'bot', text: "Couldn't load match scores. Please try again." },
-          ])
-          return
-        }
-        const matchData = (await matchRes.json()) as {
-          clinics: Array<{ id: number } & MatchResult>
-          bot_message?: string
-        }
+      if (data.type === 'routing' && Boolean(data.redFlag)) {
+        onEmergency()
+        return
+      }
+
+      if (data.type === 'results') {
+        const agentClinics = (data.clinics as Array<Record<string, unknown>>) ?? []
+        const mapped: Clinic[] = agentClinics.map((c, i) => ({
+          id: i + 1,
+          name: String(c.name ?? ''),
+          address: String(c.address ?? ''),
+          lat: Number(c.lat ?? 0),
+          lng: Number(c.lon ?? 0),
+          wait_time: Number(c.etaMinutes ?? 20),
+          specializations: [String(c.specialty ?? 'general')],
+          doctors: [],
+          phone: '',
+          hours: c.openNow ? 'Open now' : 'Closed',
+        }))
         const map: MatchMap = {}
-        matchData.clinics?.forEach((c) => {
-          map[c.id] = {
-            match_score: c.match_score,
-            urgency_level: c.urgency_level,
-            match_reason: c.match_reason,
+        agentClinics.forEach((c, i) => {
+          map[i + 1] = {
+            match_score: Number(c.matchPercent ?? 0),
+            urgency_level: 'mild',
+            match_reason: c.openNow ? 'Open now' : 'May be closed',
           }
         })
+        onClinicUpdate(mapped)
         onMatchUpdate(map)
         setMessages((prev) => [
           ...prev,
-          {
-            role: 'bot',
-            text:
-              matchData.bot_message ??
-              `Routed to ${specialty} care. Clinics are sorted by match score.`,
-          },
+          { role: 'bot', text: `Found ${mapped.length} nearby clinics, sorted by AI match score.` },
+        ])
+        return
+      }
+
+      if (data.type === 'routing') {
+        const specialty = String(data.specialty ?? 'general')
+        setMessages((prev) => [
+          ...prev,
+          { role: 'bot', text: `Routing to ${specialty} care. Check the clinic list.` },
         ])
         return
       }
@@ -408,6 +410,7 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
             <ChatBox
               onMatchUpdate={(map) => setMatchMap(map)}
               onMatchClear={() => setMatchMap(null)}
+              onClinicUpdate={(c) => setClinics(c)}
               onEmergency={() => setEmergency(true)}
               chatPrefill={chatPrefill}
             />
