@@ -448,10 +448,10 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
             </div>
             <div className="mb-3 flex items-center gap-3 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> {"<=15 min"}
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> {"<15 min"}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> 16–s30 min
+                <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />  {"15–30 min"}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-red-400" /> {">30 min"}
