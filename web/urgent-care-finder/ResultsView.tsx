@@ -50,8 +50,11 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, ope
   const [userLoc, setUserLoc] = useState(LA_DEFAULT)
   const [locLabel, setLocLabel] = useState('Central LA')
 
+  const [listening, setListening] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const geoWatchIdRef = useRef<number | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null)
 
   useEffect(() => {
     if (chatPrefill) setInput(chatPrefill)
@@ -176,6 +179,34 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, ope
     }
   }
 
+  const toggleVoice = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
+    if (!SR) {
+      alert('Voice input is not supported in this browser. Try Chrome.')
+      return
+    }
+    if (listening) {
+      recognitionRef.current?.stop()
+      return
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recognition = new SR() as any
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.lang = 'en-US'
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript as string
+      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript))
+      setListening(false)
+    }
+    recognition.onerror = () => setListening(false)
+    recognition.onend = () => setListening(false)
+    recognitionRef.current = recognition
+    recognition.start()
+    setListening(true)
+  }
+
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -298,6 +329,20 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, ope
           placeholder={thinking ? 'Analysing symptoms…' : 'Describe symptoms or ask a question…'}
           className="flex-1 rounded-xl bg-slate-100 px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50"
         />
+        <button
+          type="button"
+          onClick={toggleVoice}
+          title={listening ? 'Stop recording' : 'Speak your symptoms'}
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors ${
+            listening
+              ? 'animate-pulse bg-red-100 text-red-500'
+              : 'bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-600'
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+        </button>
         <button
           type="button"
           onClick={() => void send()}
