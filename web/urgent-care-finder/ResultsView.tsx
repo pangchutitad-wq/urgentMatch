@@ -1,5 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { clinics, MatchResult } from '@/data/clinics'
@@ -352,11 +353,15 @@ export default function ResultsView({ query, onSearch, chatPrefill }: Props) {
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
           <div className="flex flex-shrink-0 items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600">
-              <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
+            <Image
+              src="/logo_cropped.jpeg"
+              alt="UrgentLA logo"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-lg object-cover"
+              unoptimized
+              priority
+            />
             <span className="hidden text-base font-bold text-slate-900 sm:inline">UrgentLA</span>
           </div>
 

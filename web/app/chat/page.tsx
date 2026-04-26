@@ -164,7 +164,14 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
-        <Image src="/logo.PNG" alt="UrgentMatch logo" width={50} height={20} priority />
+        <Image
+          src="/logo.PNG"
+          alt="UrgentMatch logo"
+          width={40}
+          height={40}
+          className="h-10 w-10 object-contain"
+          priority
+        />
         <div className="flex-1">
           <p className="font-semibold text-gray-900 text-sm">UrgentMatch</p>
           <p className="text-xs text-gray-400">Finding the right care for you</p>
