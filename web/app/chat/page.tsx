@@ -43,7 +43,14 @@ export default function ChatPage() {
         setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude })
         setLocationStatus('granted')
       },
-      () => setLocationStatus('denied'),
+      (err) => {
+        // 1 = permission denied, 2 = unavailable, 3 = timeout
+        if (err.code === 1) {
+          setLocationStatus('denied')
+        }
+        // for unavailable/timeout leave as 'pending' — coords just won't be sent
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
     )
   }, [])
 
