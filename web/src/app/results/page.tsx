@@ -56,8 +56,8 @@ function ResultsContent() {
   const specialty = params.get('specialty') ?? 'general'
   const urgency = Number(params.get('urgency') ?? 5)
 
-  const topThree = useMemo(() => {
-    return [...clinics].sort((a, b) => a.wait_time - b.wait_time).slice(0, 3)
+  const topClinics = useMemo(() => {
+    return [...clinics].sort((a, b) => a.wait_time - b.wait_time).slice(0, 10)
   }, [])
 
   return (
@@ -84,11 +84,11 @@ function ResultsContent() {
         <span className="inline-block rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
           {SPECIALTY_LABELS[specialty] ?? specialty} care
         </span>
-        <p className="mt-1 text-xs text-slate-500">Top 3 clinics by typical wait — tailored to your specialty.</p>
+        <p className="mt-1 text-xs text-slate-500">Top 10 clinics by typical wait — tailored to your specialty.</p>
       </div>
 
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 px-4 pb-10 sm:px-6">
-        {topThree.map((clinic, i) => (
+        {topClinics.map((clinic, i) => (
           <ClinicCard key={clinic.id} clinic={clinic} rank={i + 1} matchResult={mockMatch(clinic, specialty, i)} />
         ))}
       </div>

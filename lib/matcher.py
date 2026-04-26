@@ -1,6 +1,8 @@
 from lib.models import Clinic
 from lib.distance import haversine
+
 maxDistance = 15
+TOP_MATCHES = 10
 
 def score_clinic(clinic: Clinic, specialty: str, user_lat: float, user_lon: float) -> float:
     distance = haversine(user_lat, user_lon, clinic.lat, clinic.lon)
@@ -26,4 +28,4 @@ def rank_clinics(clinics:list[Clinic], specialty: str, user_lat: float, user_lon
         if score is not None:
             results.append((score, clinic))
     results.sort(key=lambda x: x[0], reverse=True)
-    return results[:3]
+    return results[:TOP_MATCHES]

@@ -14,15 +14,14 @@ from openai import OpenAI
 from uagents import Agent, Context, Protocol
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from uagents_core.contrib.protocols.chat import (
+from lib.chat_protocol import (
     ChatAcknowledgement,
     ChatMessage,
     StartSessionContent,
     TextContent,
-    chat_protocol_spec,
 )
 
-chat_proto = Protocol(spec=chat_protocol_spec)
+chat_proto = Protocol(name="UrgentMatch-Chat", version="0.1.0")
 
 from lib.models import MatchRequest, MatchResponse
 
@@ -164,6 +163,12 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
     user_text = ""
     for item in msg.content:
         if isinstance(item, StartSessionContent):
+            ctx.logger.info(f"Session started by {sender[:16]}…")
+            await ctx.send(sender, _make_chat(
+                "Hi! I'm here to help you find the right urgent care. What's bringing you in today?"
+            ))
+            return
+        if isinstance(item, dict) and item.get("type") in ("start_session", "start-session"):
             ctx.logger.info(f"Session started by {sender[:16]}…")
             await ctx.send(sender, _make_chat(
                 "Hi! I'm here to help you find the right urgent care. What's bringing you in today?"

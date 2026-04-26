@@ -1,3 +1,5 @@
+import { FALLBACK_CLINICS, type FallbackClinic } from '../../../src/data/fallbackClinics'
+
 const PLACES_V1 = 'https://places.googleapis.com/v1'
 const RADIUS_METERS = 24140 // 15 miles
 /** When the client omits coordinates (e.g. location denied), use central LA for real Places results. */
@@ -16,64 +18,7 @@ const PLACES_FIELD_MASK = [
   'places.currentOpeningHours',
 ].join(',')
 
-interface Clinic {
-  name: string
-  address: string
-  matchPercent: number
-  etaMinutes: number
-  specialty: string
-  currentPatients: number
-  capacity: number
-  doctorsOnDuty: number
-  rating: number
-  reviewCount: number
-  openNow: boolean
-  mapsUrl: string
-  placeId: string
-  lat: number
-  lon: number
-  /** From Google `types` — helps users see hospital vs walk-in clinic. */
-  facilityLabel: string
-}
-
-const FALLBACK_CLINICS: Clinic[] = [
-  {
-    name: 'CityMD Urgent Care – West Hollywood',
-    address: '8735 Santa Monica Blvd, West Hollywood, CA 90069',
-    matchPercent: 88, etaMinutes: 18, specialty: 'general',
-    currentPatients: 8, capacity: 25, doctorsOnDuty: 3,
-    rating: 4.2, reviewCount: 1823, openNow: true,
-    placeId: '',
-    lat: 34.0901,
-    lon: -118.3834,
-    facilityLabel: 'Urgent care',
-    mapsUrl: 'https://maps.google.com/?q=CityMD+Urgent+Care+West+Hollywood',
-  },
-  {
-    name: 'MedPost Urgent Care – Silver Lake',
-    address: '2918 Rowena Ave, Los Angeles, CA 90039',
-    matchPercent: 92, etaMinutes: 10, specialty: 'general',
-    currentPatients: 4, capacity: 20, doctorsOnDuty: 2,
-    rating: 4.4, reviewCount: 290, openNow: true,
-    placeId: '',
-    lat: 34.0992,
-    lon: -118.2689,
-    facilityLabel: 'Urgent care',
-    mapsUrl: 'https://maps.google.com/?q=MedPost+Urgent+Care+Silver+Lake',
-  },
-  {
-    name: 'UCLA Health Urgent Care – Santa Monica',
-    address: '1245 16th St, Santa Monica, CA 90404',
-    matchPercent: 85, etaMinutes: 20, specialty: 'general',
-    currentPatients: 9, capacity: 32, doctorsOnDuty: 5,
-    rating: 4.3, reviewCount: 1105, openNow: true,
-    placeId: '',
-    lat: 34.0259,
-    lon: -118.4936,
-    facilityLabel: 'Urgent care',
-    mapsUrl: 'https://maps.google.com/?q=UCLA+Health+Urgent+Care+Santa+Monica',
-  },
-]
+type Clinic = FallbackClinic
 
 const NAME_KEYWORDS: Record<string, string[]> = {
   pediatric: ['pediatric', 'children', 'kids', 'child'],

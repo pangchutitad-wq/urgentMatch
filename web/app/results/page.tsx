@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
+import { FALLBACK_CLINICS } from '@/data/fallbackClinics'
+
 interface Clinic {
   name: string
   address: string
@@ -22,36 +24,6 @@ interface Clinic {
   lon?: number
   facilityLabel?: string
 }
-
-const FALLBACK: Clinic[] = [
-  {
-    name: 'CityMD Urgent Care – West Hollywood',
-    address: '8735 Santa Monica Blvd, West Hollywood, CA 90069',
-    matchPercent: 88, etaMinutes: 18, specialty: 'general',
-    currentPatients: 8, capacity: 25, doctorsOnDuty: 3,
-    rating: 4.2, reviewCount: 1823, openNow: true,
-    facilityLabel: 'Urgent care',
-    mapsUrl: 'https://maps.google.com/?q=CityMD+Urgent+Care+West+Hollywood',
-  },
-  {
-    name: 'MedPost Urgent Care – Silver Lake',
-    address: '2918 Rowena Ave, Los Angeles, CA 90039',
-    matchPercent: 92, etaMinutes: 10, specialty: 'general',
-    currentPatients: 4, capacity: 20, doctorsOnDuty: 2,
-    rating: 4.4, reviewCount: 290, openNow: true,
-    facilityLabel: 'Urgent care',
-    mapsUrl: 'https://maps.google.com/?q=MedPost+Urgent+Care+Silver+Lake',
-  },
-  {
-    name: 'UCLA Health Urgent Care – Santa Monica',
-    address: '1245 16th St, Santa Monica, CA 90404',
-    matchPercent: 85, etaMinutes: 20, specialty: 'general',
-    currentPatients: 9, capacity: 32, doctorsOnDuty: 5,
-    rating: 4.3, reviewCount: 1105, openNow: true,
-    facilityLabel: 'Urgent care',
-    mapsUrl: 'https://maps.google.com/?q=UCLA+Health+Urgent+Care+Santa+Monica',
-  },
-]
 
 const SPECIALTY_LABELS: Record<string, string> = {
   general: 'General',
@@ -126,8 +98,8 @@ function ResultsContent() {
     if (lon) q.set('lon', lon)
     fetch(`/api/clinics?${q}`)
       .then((r) => r.json())
-      .then((data: Clinic[]) => setClinics(data.length ? data : FALLBACK))
-      .catch(() => setClinics(FALLBACK))
+      .then((data: Clinic[]) => setClinics(data.length ? data : [...FALLBACK_CLINICS]))
+      .catch(() => setClinics([...FALLBACK_CLINICS]))
   }, [specialty, urgency, lat, lon])
 
   return (
