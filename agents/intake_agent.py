@@ -159,7 +159,10 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
     for item in msg.content:
         if isinstance(item, StartSessionContent):
             ctx.logger.info(f"Session started by {sender[:16]}…")
-            continue
+            await ctx.send(sender, _make_chat(
+                "Hi! I'm here to help you find the right urgent care. What's bringing you in today?"
+            ))
+            return
         elif isinstance(item, TextContent):
             user_text = item.text
         else:
