@@ -51,6 +51,7 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, ope
   const [locLabel, setLocLabel] = useState('Central LA')
 
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const geoWatchIdRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (chatPrefill) setInput(chatPrefill)
@@ -58,14 +59,24 @@ function ChatBox({ onMatchUpdate, onMatchClear, onClinicUpdate, onEmergency, ope
 
   useEffect(() => {
     if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setLocLabel('your location')
-      },
-      () => {},
-      { timeout: 5000 },
-    )
+
+    const onSuccess = (pos: GeolocationPosition) => {
+      setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+      setLocLabel('your location')
+    }
+
+    const onError = () => {
+      // Keep default "Central LA" label when location is unavailable.
+    }
+
+    const options: PositionOptions = { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, options)
+    geoWatchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, options)
+
+    return () => {
+      if (geoWatchIdRef.current !== null) navigator.geolocation.clearWatch(geoWatchIdRef.current)
+    }
   }, [])
 
   useEffect(() => {
