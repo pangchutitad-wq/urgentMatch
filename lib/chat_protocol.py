@@ -12,6 +12,7 @@ from uagents import Model
 
 __all__ = [
     "TextContent",
+    "StartSessionContent",
     "ChatMessage",
     "ChatAcknowledgement",
     "StartSessionContent",
@@ -21,6 +22,10 @@ __all__ = [
 class TextContent(Model):
     type: str = "text"
     text: str
+
+
+class StartSessionContent(Model):
+    type: str = "start-session"
 
 
 class ChatMessage(Model):

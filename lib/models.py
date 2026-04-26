@@ -26,11 +26,12 @@ class ClinicResult(Model):
     reviewCount: int = 0
     openNow: bool = True
     mapsUrl: str = ""
+    hoursText: str = ""
 
 #for backend scoring logic
 @dataclass
 class Clinic:
-    name: str 
+    name: str
     address: str
     lat: float
     lon: float
@@ -41,8 +42,10 @@ class Clinic:
     rating: float = 0.0
     open_now: bool = True
     place_id: str = ""
+    hours_today: str = ""
+    busyness_score: Optional[int] = None
 
 class MatchResponse(Model):
     session_id: str
-    clinics: List[ClinicResult]
+    clinics: list[ClinicResult]
     error: Optional[str] = None

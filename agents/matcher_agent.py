@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.models import MatchRequest, MatchResponse, ClinicResult, Clinic
 from lib.matcher import rank_clinics
 from lib.places import fetch_nearby_urgent_care
+from lib.wait_time import estimate_wait
 
 load_dotenv()
 
@@ -42,6 +43,7 @@ async def handle_match_request(ctx: Context, sender: str, msg: MatchRequest):
     try:
         # Fetch real nearby urgent care clinics (falls back to mock data if no API key)
         clinic_dicts = await fetch_nearby_urgent_care(msg.user_lat, msg.user_lon)
+        ctx.logger.info(f"fetch_nearby_urgent_care returned {len(clinic_dicts)} clinics; first has hours_today={clinic_dicts[0].get('hours_today', 'N/A') if clinic_dicts else 'none'}")
 
         all_clinics = []
         for d in clinic_dicts:
@@ -59,6 +61,8 @@ async def handle_match_request(ctx: Context, sender: str, msg: MatchRequest):
                     rating=d.get("rating") or 0.0,
                     open_now=d.get("open_now", True),
                     place_id=d.get("place_id", ""),
+                    hours_today=d.get("hours_today", ""),
+                    busyness_score=d.get("busyness_score"),
                 )
             )
 
@@ -89,16 +93,17 @@ async def handle_match_request(ctx: Context, sender: str, msg: MatchRequest):
             else:
                 display_specialty = clinic.specialties[0]
             
+            doctor_count = random.randint(2, 4)
             results.append(
                 ClinicResult(
                     name=clinic.name,
                     address=clinic.address,
                     matchPercent=match_percent,
-                    etaMinutes=clinic.eta_minutes,
+                    etaMinutes=estimate_wait(clinic.busyness_score, doctor_count) or random.randint(10, 70),
                     specialty=display_specialty,
                     currentPatients=clinic.current_patients,
                     capacity=clinic.capacity,
-                    doctorsOnDuty=random.randint(2, 4),  # Randomized per request
+                    doctorsOnDuty=doctor_count,
                     rating=clinic.rating,
                     reviewCount=0,
                     openNow=clinic.open_now,
@@ -107,6 +112,7 @@ async def handle_match_request(ctx: Context, sender: str, msg: MatchRequest):
                         if clinic.place_id
                         else f"https://maps.google.com/?q={clinic.address.replace(' ', '+')}"
                     ),
+                    hoursText=clinic.hours_today,
                 )
             )
         
