@@ -9,22 +9,24 @@ from dotenv import load_dotenv
 # import anthropic
 from openai import OpenAI
 from uagents import Agent, Context, Protocol
-from uagents_core.contrib.protocols.chat import (
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lib.chat_protocol import (
     ChatAcknowledgement,
     ChatMessage,
     TextContent,
-    chat_protocol_spec,
 )
 
-chat_proto = Protocol(spec=chat_protocol_spec)
+chat_proto = Protocol(name="AgentChatProtocol", version="0.3.0")
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.models import MatchRequest, MatchResponse
 
 load_dotenv()
 
 # ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
-ASI1_API_KEY = os.environ["ASI1_API_KEY"]
+ASI1_API_KEY = os.getenv("ASI1_API_KEY", "")
+if not ASI1_API_KEY:
+    raise RuntimeError("Set ASI1_API_KEY in the environment (see .env.example).")
 MATCHER_AGENT_ADDRESS = os.getenv("MATCHER_AGENT_ADDRESS", "")
 INTAKE_SEED = os.getenv("INTAKE_SEED", "urgentmatch-intake-seed")
 
@@ -77,6 +79,8 @@ def _extract_text(msg: ChatMessage) -> str:
     for part in msg.content:
         if isinstance(part, TextContent):
             return part.text
+        if isinstance(part, dict) and part.get("type") == "text":
+            return str(part.get("text", ""))
     return ""
 
 
